@@ -1,29 +1,45 @@
-import { rows, one } from "#db/client";
+import { query } from "#db/client";
 
-const DEFAULT_COLUMNS = ["Backlog", "In Progress", "Done"];
+export async function getProjectById(id) {
+  const { rows } = await query(`SELECT * FROM projects WHERE id = $1`, [id]);
+  return rows[0];
+}
 
-// New projects start with the default board columns.
-export const createProject = async ({ orgId, name, key, color }) => {
-  const project = await one(
+export async function listProjectsForOrg(orgId) {
+  const { rows } = await query(
+    `SELECT * FROM projects WHERE org_id = $1 ORDER BY created_at`,
+    [orgId]
+  );
+  return rows;
+}
+
+// Creating a project seeds a default three-column board.
+export async function createProject({ orgId, name, key, color }) {
+  const { rows } = await query(
     `INSERT INTO projects (org_id, name, key, color)
-     VALUES ($1, $2, upper($3), COALESCE($4, '#5B7B9A')) RETURNING *`,
-    [orgId, name, key, color ?? null]);
-  for (const [i, col] of DEFAULT_COLUMNS.entries())
-    await one(`INSERT INTO columns (project_id, name, position) VALUES ($1,$2,$3) RETURNING id`,
-      [project.id, col, i]);
+     VALUES ($1, $2, $3, COALESCE($4, '#5B7B9A')) RETURNING *`,
+    [orgId, name, key.toUpperCase(), color]
+  );
+  const project = rows[0];
+  const defaults = ["Backlog", "In Progress", "Done"];
+  for (let i = 0; i < defaults.length; i++) {
+    await query(
+      `INSERT INTO columns (project_id, name, position) VALUES ($1, $2, $3)`,
+      [project.id, defaults[i], i]
+    );
+  }
   return project;
-};
+}
 
-export const getProjectById = (id) =>
-  one(`SELECT * FROM projects WHERE id = $1`, [id]);
+export async function listColumns(projectId) {
+  const { rows } = await query(
+    `SELECT * FROM columns WHERE project_id = $1 ORDER BY position`,
+    [projectId]
+  );
+  return rows;
+}
 
-export const listProjectsForOrg = (orgId) =>
-  rows(`SELECT p.*, count(t.id)::int AS task_count
-          FROM projects p LEFT JOIN tasks t ON t.project_id = p.id
-         WHERE p.org_id = $1 GROUP BY p.id ORDER BY p.id`, [orgId]);
-
-export const listColumns = (projectId) =>
-  rows(`SELECT * FROM columns WHERE project_id = $1 ORDER BY position, id`, [projectId]);
-
-export const getColumnById = (id) =>
-  one(`SELECT * FROM columns WHERE id = $1`, [id]);
+export async function getColumnById(id) {
+  const { rows } = await query(`SELECT * FROM columns WHERE id = $1`, [id]);
+  return rows[0];
+}

@@ -1,28 +1,23 @@
 import express from "express";
-const app = express();
-export default app;
-
-import usersRouter from "#api/users";
-import getUserFromToken from "#middleware/getUserFromToken";
-import handlePostgresErrors from "#middleware/handlePostgresErrors";
 import cors from "cors";
-import morgan from "morgan";
+import authRouter from "#routes/auth";
+import orgsRouter from "#routes/orgs";
+import notifRouter from "#routes/notifications";
+import errorHandler from "#middleware/errorHandler";
 
-app.use(cors({ origin: process.env.CORS_ORIGIN ?? /localhost/ }));
-
-app.use(morgan("dev"));
-
+const app = express();
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-app.use(getUserFromToken);
+app.get("/health", (req, res) => res.json({ status: "ok" }));
 
-app.get("/", (req, res) => res.send("Hello, World!"));
+app.use("/auth", authRouter);
+app.use("/orgs", orgsRouter);
+app.use("/notifications", notifRouter);
 
-app.use("/users", usersRouter);
+// Unknown route -> 404 JSON (before the error handler).
+app.use((req, res) => res.status(404).json({ error: "Not found." }));
 
-app.use(handlePostgresErrors);
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).send("Sorry! Something went wrong.");
-});
+app.use(errorHandler);
+
+export default app;

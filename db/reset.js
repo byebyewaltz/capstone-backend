@@ -1,7 +1,20 @@
-import "dotenv/config";
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
+dotenv.config();
 import pool from "#db/client";
 
-await pool.query(fs.readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
-console.log("Schema applied.");
-await pool.end();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+async function main() {
+  const sql = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
+  await pool.query(sql);
+  console.log("Schema applied.");
+  await pool.end();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
