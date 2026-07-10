@@ -1,8 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
-import app from "./app.js";
+import app from "#app";
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`TaskForge API listening on http://localhost:${PORT}`);
-});
+const port = process.env.PORT ?? 3000;
+app.listen(port, () => console.log(`TaskForge API listening on :${port}`));

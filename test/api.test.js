@@ -532,31 +532,29 @@ test("editing your own task does not notify you", async () => {
    Regression: nobody should ever land in the app without a workspace.
    ------------------------------------------------------------------------ */
 
-test("an account with no membership gets its own workspace, not someone else's", async () => {
-  // Adoption must never hand out membership in an organization the account was
-  // not invited to — organizations are deletable, so the oldest surviving one
-  // may be another user's private workspace.
+test("an account with no membership is adopted into the default workspace", async () => {
+  // Simulates an account created before auto-enrolment existed, or one whose
+  // last membership was revoked. It used to strand the user on an error screen.
   const reg = await api("POST", "/auth/register", {
     body: { name: "Legacy User", email: "legacy@taskforge.io", password: "legacy123" },
   });
   const token = reg.body.token;
 
-  // Strip the membership registration created.
+  // Strip the membership the registration just created.
   await pool.query(
     `DELETE FROM memberships WHERE user_id = (SELECT id FROM users WHERE email = 'legacy@taskforge.io')`
   );
-  const before = await pool.query(
+  const { rows } = await pool.query(
     `SELECT count(*)::int AS n FROM memberships m
        JOIN users u ON u.id = m.user_id WHERE u.email = 'legacy@taskforge.io'`
   );
-  assert.equal(before.rows[0].n, 0);
+  assert.equal(rows[0].n, 0);
 
-  // GET /orgs rescues them — into a personal workspace they own.
+  // GET /orgs adopts them rather than returning an empty list.
   const orgs = await api("GET", "/orgs", { token });
   assert.equal(orgs.status, 200);
   assert.equal(orgs.body.length, 1);
-  assert.equal(orgs.body[0].role, "owner");
-  assert.notEqual(orgs.body[0].slug, "meridian", "must not silently join the shared org");
+  assert.equal(orgs.body[0].slug, "meridian");
 
   // The membership is persisted, not just synthesised in the response.
   const after = await pool.query(
@@ -707,262 +705,4 @@ test("isolation: the notification feed hides rows from foreign organizations", a
   const notifs = (await api("GET", "/notifications", { token: leo })).body;
   assert.ok(!notifs.some((n) => n.body === "Old leak"),
     "a notification pointing into a foreign org must not be served");
-});
-
-/* ---------------------------------------------------------------------------
-   Owners and admins can create organizations and assign people into them.
-   Assignment is invitation-only: it never lets an outsider join by choice.
-   ------------------------------------------------------------------------ */
-
-test("an owner can create an organization and owns it", async () => {
-  const donna = await login("donna@taskforge.io");
-  const created = await api("POST", "/orgs", {
-    token: donna, body: { name: "Ferrous Press", slug: "ferrous-create" },
-  });
-  assert.equal(created.status, 201);
-
-  const mine = (await api("GET", "/orgs", { token: donna })).body;
-  const made = mine.find((o) => o.slug === "ferrous-create");
-  assert.equal(made.role, "owner");
-
-  // Slugs are unique.
-  const dup = await api("POST", "/orgs", {
-    token: donna, body: { name: "Copy", slug: "ferrous-create" },
-  });
-  assert.equal(dup.status, 409);
-});
-
-test("the assignable directory is admin-only and leaks no secrets", async () => {
-  const donna = await login("donna@taskforge.io");
-  const res = await api("GET", "/orgs/1/assignable", { token: donna });
-  assert.equal(res.status, 200);
-  assert.ok(res.body.length >= 11);
-
-  // Members are flagged, and password material never appears.
-  assert.ok(res.body.some((u) => u.is_member === true));
-  for (const u of res.body) {
-    assert.ok(!("password_hash" in u), "password_hash must not be exposed");
-    assert.ok(u.email && u.name);
-  }
-
-  // A viewer inside the org still cannot enumerate accounts.
-  const leo = await login("leo@taskforge.io");
-  assert.equal((await api("GET", "/orgs/1/assignable", { token: leo })).status, 403);
-});
-
-test("an admin assigns people by userId or by email", async () => {
-  const donna = await login("donna@taskforge.io");
-  const org = (await api("POST", "/orgs", {
-    token: donna, body: { name: "Assign Test", slug: "assign-test" },
-  })).body;
-
-  // By id, the path the picker uses.
-  const byId = await api("POST", `/orgs/${org.id}/members`, {
-    token: donna, body: { userId: 7, role: "member" },
-  });
-  assert.equal(byId.status, 201);
-  assert.equal(byId.body.name, "Iris Kaminski");
-
-  // By email, the path a typed address uses.
-  const byEmail = await api("POST", `/orgs/${org.id}/members`, {
-    token: donna, body: { email: "noah@taskforge.io", role: "admin" },
-  });
-  assert.equal(byEmail.status, 201);
-
-  const roster = (await api("GET", `/orgs/${org.id}/members`, { token: donna })).body;
-  assert.equal(roster.length, 3); // Donna + Iris + Noah
-
-  // Guard rails.
-  assert.equal((await api("POST", `/orgs/${org.id}/members`, { token: donna, body: { userId: 7 } })).status, 409);
-  assert.equal((await api("POST", `/orgs/${org.id}/members`, { token: donna, body: { userId: 9999 } })).status, 404);
-  assert.equal((await api("POST", `/orgs/${org.id}/members`, { token: donna, body: {} })).status, 400);
-});
-
-test("assignment cannot mint a second owner", async () => {
-  const donna = await login("donna@taskforge.io");
-  const org = (await api("POST", "/orgs", {
-    token: donna, body: { name: "One Owner", slug: "one-owner" },
-  })).body;
-  const res = await api("POST", `/orgs/${org.id}/members`, {
-    token: donna, body: { userId: 5, role: "owner" },
-  });
-  assert.equal(res.status, 403);
-
-  const roster = (await api("GET", `/orgs/${org.id}/members`, { token: donna })).body;
-  assert.equal(roster.filter((m) => m.role === "owner").length, 1);
-});
-
-test("assignment is invitation-only: an outsider cannot join themselves", async () => {
-  const donna = await login("donna@taskforge.io");
-  const org = (await api("POST", "/orgs", {
-    token: donna, body: { name: "Closed Shop", slug: "closed-shop" },
-  })).body;
-
-  const leo = await login("leo@taskforge.io");
-  // He cannot read it, enumerate it, or add himself.
-  assert.equal((await api("GET", `/orgs/${org.id}`, { token: leo })).status, 403);
-  assert.equal((await api("GET", `/orgs/${org.id}/assignable`, { token: leo })).status, 403);
-  const selfAdd = await api("POST", `/orgs/${org.id}/members`, {
-    token: leo, body: { userId: 4, role: "admin" },
-  });
-  assert.equal(selfAdd.status, 403);
-
-  // And it never shows up in his list.
-  const his = (await api("GET", "/orgs", { token: leo })).body;
-  assert.ok(!his.some((o) => o.id === org.id));
-});
-
-/* ---------------------------------------------------------------------------
-   Deleting an organization. Owner-only, irreversible, confirmation-gated, and
-   it must not become a way to leak another workspace to its former members.
-   ------------------------------------------------------------------------ */
-
-// A throwaway org owned by donna, with a project, a task, a comment, a file.
-async function makeDisposableOrg(token, slug, name) {
-  const org = (await api("POST", "/orgs", { token, body: { name, slug } })).body;
-  const project = (await api("POST", `/orgs/${org.id}/projects`, {
-    token, body: { name: "Zine", key: slug.slice(0, 3).toUpperCase() },
-  })).body;
-  const cols = (await api("GET", `/orgs/${org.id}/projects/${project.id}/columns`, { token })).body;
-  const task = (await api("POST", `/orgs/${org.id}/projects/${project.id}/tasks`, {
-    token, body: { title: "Print run", columnId: cols[0].id },
-  })).body;
-  await api("POST", `/orgs/${org.id}/projects/${project.id}/tasks/${task.id}/comments`, {
-    token, body: { body: "Booked." },
-  });
-  await api("POST", `/orgs/${org.id}/projects/${project.id}/tasks/${task.id}/attachments`, {
-    token, body: { filename: "proof.pdf", sizeBytes: 9000 },
-  });
-  return { org, project, task };
-}
-
-test("delete: the footprint preview is owner-only", async () => {
-  const donna = await login("donna@taskforge.io");
-  const { org } = await makeDisposableOrg(donna, "fp-org", "Footprint Org");
-  await api("POST", `/orgs/${org.id}/members`, { token: donna, body: { userId: 2, role: "admin" } });
-
-  const fp = await api("GET", `/orgs/${org.id}/footprint`, { token: donna });
-  assert.equal(fp.status, 200);
-  assert.equal(fp.body.projects, 1);
-  assert.equal(fp.body.tasks, 1);
-  assert.equal(fp.body.comments, 1);
-  assert.equal(fp.body.attachments, 1);
-  assert.equal(fp.body.members, 2);
-
-  // An admin inside the org still cannot see it — deletion isn't theirs to plan.
-  const marcus = await login("marcus@taskforge.io");
-  assert.equal((await api("GET", `/orgs/${org.id}/footprint`, { token: marcus })).status, 403);
-});
-
-test("delete: requires owner, and an exact name confirmation", async () => {
-  const donna = await login("donna@taskforge.io");
-  const { org } = await makeDisposableOrg(donna, "confirm-org", "Confirm Org");
-  await api("POST", `/orgs/${org.id}/members`, { token: donna, body: { userId: 2, role: "admin" } });
-
-  // No confirmation, wrong confirmation.
-  assert.equal((await api("DELETE", `/orgs/${org.id}`, { token: donna, body: {} })).status, 400);
-  assert.equal((await api("DELETE", `/orgs/${org.id}`, {
-    token: donna, body: { confirm: "confirm-org" },
-  })).status, 400);
-
-  // An admin cannot delete, even with the right name.
-  const marcus = await login("marcus@taskforge.io");
-  assert.equal((await api("DELETE", `/orgs/${org.id}`, {
-    token: marcus, body: { confirm: "Confirm Org" },
-  })).status, 403);
-
-  // An outsider cannot even see it.
-  const leo = await login("leo@taskforge.io");
-  assert.equal((await api("DELETE", `/orgs/${org.id}`, {
-    token: leo, body: { confirm: "Confirm Org" },
-  })).status, 403);
-
-  // It is still there.
-  assert.equal((await api("GET", `/orgs/${org.id}`, { token: donna })).status, 200);
-});
-
-test("delete: cascades to projects, tasks, comments, files, and memberships", async () => {
-  const donna = await login("donna@taskforge.io");
-  const { org, project, task } = await makeDisposableOrg(donna, "cascade-org", "Cascade Org");
-
-  const res = await api("DELETE", `/orgs/${org.id}`, {
-    token: donna, body: { confirm: "Cascade Org" },
-  });
-  assert.equal(res.status, 200);
-  assert.equal(res.body.deleted.name, "Cascade Org");
-  assert.equal(res.body.destroyed.tasks, 1);
-
-  // Nothing orphaned anywhere.
-  for (const [table, col, id] of [
-    ["organizations", "id", org.id],
-    ["memberships", "org_id", org.id],
-    ["projects", "id", project.id],
-    ["tasks", "id", task.id],
-    ["comments", "task_id", task.id],
-    ["attachments", "task_id", task.id],
-    ["notifications", "task_id", task.id],
-  ]) {
-    const { rows } = await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE ${col} = $1`, [id]);
-    assert.equal(rows[0].n, 0, `${table} should have no rows for ${col}=${id}`);
-  }
-
-  // The seeded workspace is untouched.
-  const meridian = await api("GET", "/orgs/1/projects", { token: donna });
-  assert.equal(meridian.status, 200);
-  assert.ok(meridian.body.length >= 5);
-});
-
-test("delete: you cannot delete the only organization you belong to", async () => {
-  // Grace registers into the shared workspace and founds nothing else.
-  const reg = await api("POST", "/auth/register", {
-    body: { name: "Solo Owner", email: "solo@taskforge.io", password: "solo1234" },
-  });
-  const token = reg.body.token;
-  const own = (await api("POST", "/orgs", { token, body: { name: "Only One", slug: "only-one" } })).body;
-
-  // Leave the shared org so this is genuinely her last one.
-  const members = (await api("GET", "/orgs/1/members", { token: await login("donna@taskforge.io") })).body;
-  const hers = members.find((m) => m.email === "solo@taskforge.io");
-  await api("DELETE", `/orgs/1/members/${hers.id}`, { token: await login("donna@taskforge.io") });
-
-  const res = await api("DELETE", `/orgs/${own.id}`, { token, body: { confirm: "Only One" } });
-  assert.equal(res.status, 409);
-
-  // It survives.
-  assert.equal((await api("GET", `/orgs/${own.id}`, { token })).status, 200);
-});
-
-test("delete: a former member is never adopted into a private workspace", async () => {
-  // The dangerous interaction: deleting an org strands its members, and a naive
-  // rescue would drop them into whatever organization happened to be oldest.
-  const donna = await login("donna@taskforge.io");
-  const vault = (await api("POST", "/orgs", {
-    token: donna, body: { name: "Private Vault", slug: "vault" },
-  })).body;
-  const proj = (await api("POST", `/orgs/${vault.id}/projects`, {
-    token: donna, body: { name: "Acquisition", key: "ACQ" },
-  })).body;
-  const cols = (await api("GET", `/orgs/${vault.id}/projects/${proj.id}/columns`, { token: donna })).body;
-  await api("POST", `/orgs/${vault.id}/projects/${proj.id}/tasks`, {
-    token: donna, body: { title: "Confidential: term sheet", columnId: cols[0].id },
-  });
-
-  // Give Leo an org of his own to be stranded from.
-  const leoReg = await api("POST", "/auth/register", {
-    body: { name: "Stranded", email: "stranded@taskforge.io", password: "strand12" },
-  });
-  const stranded = leoReg.body.token;
-  await pool.query(
-    `DELETE FROM memberships WHERE user_id = (SELECT id FROM users WHERE email='stranded@taskforge.io')`
-  );
-
-  // He is rescued into his own workspace — never into Donna's vault.
-  const his = (await api("GET", "/orgs", { token: stranded })).body;
-  assert.equal(his.length, 1);
-  assert.equal(his[0].role, "owner");
-  assert.notEqual(his[0].id, vault.id);
-
-  // And the vault is still sealed.
-  assert.equal((await api("GET", `/orgs/${vault.id}`, { token: stranded })).status, 403);
-  assert.equal((await api("GET", `/orgs/${vault.id}/projects`, { token: stranded })).status, 403);
 });

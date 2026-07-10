@@ -4,29 +4,21 @@ import { requireUser, signToken } from "#middleware/auth";
 import {
   createUser, getUserByEmail, verifyPassword, deleteUser,
 } from "#db/users";
-import { getSharedOrg, getOrCreateDefaultOrg, addMember } from "#db/orgs";
+import { getOrCreateDefaultOrg, addMember } from "#db/orgs";
 
 const router = express.Router();
 
 // POST /auth/register
-// New accounts are enrolled in the shared workspace, so nobody lands in the app
-// without an organization context. On an empty database there is nothing to
-// join, so the first account founds its own and owns it.
+// New accounts join the default workspace, so nobody ever lands in the app
+// without an organization context. The very first account on a fresh database
+// founds that workspace and owns it; everyone after joins as a member.
 router.post("/register", requireBody("name", "email", "password"), async (req, res, next) => {
   try {
     const { name, email, password, color } = req.body;
     const user = await createUser({ name, email, password, color });
 
-    const shared = await getSharedOrg();
-    let org, role;
-    if (shared) {
-      org = shared;
-      role = "member";
-    } else {
-      ({ org } = await getOrCreateDefaultOrg(user.id));
-      role = "owner";
-    }
-    await addMember({ orgId: org.id, userId: user.id, role });
+    const { org, founded } = await getOrCreateDefaultOrg(user.id);
+    await addMember({ orgId: org.id, userId: user.id, role: founded ? "owner" : "member" });
 
     const token = signToken(user.id);
     res.status(201).json({ user, token, org });

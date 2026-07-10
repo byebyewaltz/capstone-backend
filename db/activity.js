@@ -73,7 +73,7 @@ export async function listNotifications(userId) {
              WHERE m.user_id = $1 AND m.org_id = p.org_id
           )
         )
-      ORDER BY n.created_at DESC LIMIT 50`,
+      ORDER BY n.created_at DESC, n.id DESC LIMIT 50`,
     [userId]
   );
   return rows;

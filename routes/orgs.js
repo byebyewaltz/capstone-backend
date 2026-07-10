@@ -3,8 +3,7 @@ import requireBody from "#middleware/requireBody";
 import { requireUser, requireOrgMember, requireRole } from "#middleware/auth";
 import {
   getOrgById, createOrg, listOrgsForUser, getOrCreateDefaultOrg, listMembers,
-  listAssignableUsers, getMembershipById, addMember, setRole, removeMember,
-  orgFootprint, deleteOrg, countOrgsForUser, getMembership,
+  getMembershipById, addMember, setRole, removeMember, deleteOrg,
 } from "#db/orgs";
 import { getUserByEmail, getUserById } from "#db/users";
 import projectsRouter from "#routes/projects";
@@ -22,13 +21,8 @@ router.get("/", async (req, res, next) => {
   try {
     let mine = await listOrgsForUser(req.user.id);
     if (mine.length === 0) {
-      // Safe adoption: reuses an org this user founded, or mints them a
-      // personal one. Never joins them to someone else's workspace.
-      const { org } = await getOrCreateDefaultOrg(req.user.id);
-      const existing = await getMembership(org.id, req.user.id);
-      if (!existing) {
-        await addMember({ orgId: org.id, userId: req.user.id, role: "owner" });
-      }
+      const { org, founded } = await getOrCreateDefaultOrg(req.user.id);
+      await addMember({ orgId: org.id, userId: req.user.id, role: founded ? "owner" : "member" });
       mine = await listOrgsForUser(req.user.id);
     }
     res.json(mine);
@@ -60,41 +54,26 @@ router.use("/:orgId", requireOrgMember);
 router.get("/:orgId", (req, res) =>
   res.json({ ...req.org, role: req.membership.role }));
 
-// GET /orgs/:orgId/footprint — what a delete would destroy. Owner-only, since
-// only an owner can act on it.
-router.get("/:orgId/footprint", requireRole("owner"), async (req, res, next) => {
-  try {
-    res.json(await orgFootprint(req.org.id));
-  } catch (err) { next(err); }
-});
-
-// DELETE /orgs/:orgId — destroys the organization and everything in it.
-// Owner-only, irreversible, and guarded three ways:
-//   • the caller must type the organization's exact name to confirm
-//   • you cannot delete the only organization you belong to
-//   • cascade removes projects, tasks, comments, files, and memberships
-router.delete("/:orgId", requireRole("owner"), async (req, res, next) => {
-  try {
-    const confirm = req.body?.confirm;
-    if (confirm !== req.org.name) {
-      return res.status(400).json({
-        error: `Type the organization name exactly to confirm: "${req.org.name}".`,
-      });
-    }
-
-    // Refuse to strand the owner without a workspace.
-    const remaining = await countOrgsForUser(req.user.id);
-    if (remaining <= 1) {
-      return res.status(409).json({
-        error: "This is your only organization. Create another before deleting this one.",
-      });
-    }
-
-    const footprint = await orgFootprint(req.org.id);
-    const deleted = await deleteOrg(req.org.id);
-    res.json({ deleted: { id: deleted.id, name: deleted.name }, destroyed: footprint });
-  } catch (err) { next(err); }
-});
+// DELETE /orgs/:orgId — owners only. Deletion is irreversible and takes every
+// project, task, and membership with it, so the caller must type the org's
+// name to confirm, and may not delete the only org they belong to (nobody
+// should strand themselves without a workspace).
+router.delete("/:orgId", requireRole("owner"), requireBody("confirm"),
+  async (req, res, next) => {
+    try {
+      if (req.body.confirm !== req.org.name) {
+        return res.status(400).json({
+          error: "Confirmation text must match the organization name exactly.",
+        });
+      }
+      const mine = await listOrgsForUser(req.user.id);
+      if (mine.length <= 1) {
+        return res.status(409).json({ error: "You cannot delete your only organization." });
+      }
+      const destroyed = await deleteOrg(req.org.id);
+      res.json({ deleted: true, destroyed });
+    } catch (err) { next(err); }
+  });
 
 /* ------------------------------ members ---------------------------------- */
 router.get("/:orgId/members", async (req, res, next) => {
@@ -103,34 +82,32 @@ router.get("/:orgId/members", async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /orgs/:orgId/assignable — the account directory, for the "assign someone
-// to this organization" picker. Admin-only: a viewer must not be able to
-// enumerate every account on the instance.
+// GET /orgs/:orgId/assignable — the directory used to populate assignee
+// pickers. Admin-only: rank-and-file members see names on tasks, but only
+// admins may enumerate the whole roster.
 router.get("/:orgId/assignable", requireRole("admin"), async (req, res, next) => {
   try {
-    res.json(await listAssignableUsers(req.org.id));
+    res.json(await listMembers(req.org.id));
   } catch (err) { next(err); }
 });
 
-// Assign someone to this organization — admins and up. Accepts either a
-// userId (from the assignable-users picker) or an email address.
+// Add a member by email or user id — admins and up. There is exactly one
+// owner per org (seated at creation), so the owner role can never be granted.
 router.post("/:orgId/members", requireRole("admin"), async (req, res, next) => {
   try {
-    const { userId, email, role } = req.body || {};
-    if (!userId && !email) {
-      return res.status(400).json({ error: "Provide a userId or an email." });
-    }
-    const user = userId
-      ? await getUserById(Number(userId))
-      : await getUserByEmail(email);
-    if (!user) return res.status(404).json({ error: "No account matches that person." });
-
-    // Never let an assignment mint an owner; ownership is founding-only.
+    const { email, userId, role } = req.body ?? {};
     if (role === "owner") {
-      return res.status(403).json({ error: "An organization can only have its founding owner." });
+      return res.status(403).json({ error: "The owner role cannot be granted." });
     }
+    if (!email && !userId) {
+      return res.status(400).json({ error: "Provide the new member's email or userId." });
+    }
+    const user = email
+      ? await getUserByEmail(email)
+      : await getUserById(Number(userId));
+    if (!user) return res.status(404).json({ error: "No user with that email." });
     const member = await addMember({ orgId: req.org.id, userId: user.id, role });
-    res.status(201).json({ ...member, name: user.name, email: user.email });
+    res.status(201).json(member);
   } catch (err) { next(err); } // 23505 -> 409 if already a member
 });
 
