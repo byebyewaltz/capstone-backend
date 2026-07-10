@@ -1,23 +1,14 @@
-// Wraps async route/param handlers so they can throw or reject into next().
-export const h = (fn) => async (req, res, next, ...args) => {
-  try { await fn(req, res, next, ...args); } catch (err) { next(err); }
-};
+// h() wraps async handlers/params so rejections reach the error handler.
+// Works for both (req,res,next) handlers and (req,res,next,value) param callbacks.
+export const h = (fn) => (req, res, next, ...rest) =>
+  Promise.resolve(fn(req, res, next, ...rest)).catch(next);
 
-// PostgreSQL error code -> HTTP status.
-const PG = {
-  23505: [409, "That value already exists."],
-  23503: [400, "Referenced record does not exist."],
-  23502: [400, "A required field was null."],
-  "22P02": [400, "Invalid value for a field."],
-  23514: [400, "A field failed a constraint check."],
-};
+const PG = { 23505: [409, "That value is already taken."],
+             23503: [400, "A referenced record does not exist."],
+             "22P02": [400, "Invalid value."] };
 
-export default function errorHandler(err, req, res, _next) {
-  if (PG[err?.code]) {
-    const [status, error] = PG[err.code];
-    return res.status(status).json({ error, detail: err.detail });
-  }
-  if (err?.status) return res.status(err.status).json({ error: err.message });
-  console.error(err);
-  res.status(500).json({ error: "Internal server error." });
-}
+export default (err, req, res, next) => {
+  const [status, message] = PG[err.code] ?? [err.status || 500, err.message || "Internal server error."];
+  if (status === 500) console.error(err);
+  res.status(status).json({ error: message });
+};
