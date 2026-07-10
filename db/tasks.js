@@ -1,183 +1,71 @@
-import pool, { query } from "#db/client";
+import { query, rows, one } from "#db/client";
 
-export async function getTaskById(id) {
-  const { rows } = await query(`SELECT * FROM tasks WHERE id = $1`, [id]);
-  return rows[0];
-}
+const WITH_ASSIGNEE = `SELECT t.*, u.name AS assignee_name, u.color AS assignee_color
+                         FROM tasks t LEFT JOIN users u ON u.id = t.assignee_id`;
 
-// Board read: all tasks for a project, with optional priority/assignee filters.
-export async function listTasks(projectId, { priority, assigneeId } = {}) {
-  const clauses = ["project_id = $1"];
-  const params = [projectId];
-  if (priority) {
-    params.push(priority);
-    clauses.push(`priority = $${params.length}`);
+export const getTaskById = (id) => one(`${WITH_ASSIGNEE} WHERE t.id = $1`, [id]);
+
+export const listTasks = (projectId, { priority, assigneeId } = {}) =>
+  rows(`${WITH_ASSIGNEE}
+         WHERE t.project_id = $1
+           AND ($2::task_priority IS NULL OR t.priority = $2)
+           AND ($3::int IS NULL OR t.assignee_id = $3)
+         ORDER BY t.column_id, t.position, t.id`,
+    [projectId, priority ?? null, assigneeId ?? null]);
+
+// Appended to the bottom of its column.
+export const createTask = async ({ projectId, columnId, title, description, priority, assigneeId, dueDate, createdBy }) => {
+  const { id } = await one(
+    `INSERT INTO tasks (project_id, column_id, title, description, priority, assignee_id, due_date, created_by, position)
+     VALUES ($1, $2, $3, COALESCE($4, ''), COALESCE($5, 'medium')::task_priority, $6, $7, $8,
+             (SELECT COALESCE(MAX(position), -1) + 1 FROM tasks WHERE column_id = $2))
+     RETURNING id`,
+    [projectId, columnId, title, description ?? null, priority ?? null,
+     assigneeId ?? null, dueDate ?? null, createdBy ?? null]);
+  return getTaskById(id);
+};
+
+// patch keys are trusted column names mapped by the route layer.
+export const updateTask = async (id, patch) => {
+  const keys = Object.keys(patch);
+  if (keys.length) {
+    const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(", ");
+    await query(`UPDATE tasks SET ${sets}, updated_at = now() WHERE id = $1`,
+      [id, ...Object.values(patch)]);
   }
-  if (assigneeId) {
-    params.push(assigneeId);
-    clauses.push(`assignee_id = $${params.length}`);
-  }
-  const { rows } = await query(
-    `SELECT * FROM tasks WHERE ${clauses.join(" AND ")}
-     ORDER BY column_id, position`,
-    params
-  );
-  return rows;
-}
+  return getTaskById(id);
+};
 
-export async function createTask({
-  projectId, columnId, title, description, priority, assigneeId, dueDate, createdBy,
-}) {
-  const { rows: [{ next }] } = await query(
-    `SELECT COALESCE(MAX(position) + 1, 0) AS next FROM tasks WHERE column_id = $1`,
-    [columnId]
-  );
-  const { rows } = await query(
-    `INSERT INTO tasks
-       (project_id, column_id, title, description, priority, assignee_id, due_date, position, created_by)
-     VALUES ($1, $2, $3, COALESCE($4,''), COALESCE($5,'medium')::task_priority, $6, $7, $8, $9)
-     RETURNING *`,
-    [projectId, columnId, title, description, priority, assigneeId, dueDate || null, next, createdBy]
-  );
-  return rows[0];
-}
+// Close the gap left behind, open one at the destination, then land there.
+export const moveTask = async (id, toColumnId, toPosition) => {
+  const task = await one(`SELECT column_id, position FROM tasks WHERE id = $1`, [id]);
+  await query(`UPDATE tasks SET position = position - 1 WHERE column_id = $1 AND position > $2`,
+    [task.column_id, task.position]);
+  await query(`UPDATE tasks SET position = position + 1
+                WHERE column_id = $1 AND position >= $2 AND id <> $3`,
+    [toColumnId, toPosition, id]);
+  await query(`UPDATE tasks SET column_id = $2, position = $3, updated_at = now() WHERE id = $1`,
+    [id, toColumnId, toPosition]);
+  return getTaskById(id);
+};
 
-const EDITABLE = ["title", "description", "priority", "assignee_id", "due_date", "column_id"];
-const ENUM_COLS = { priority: "task_priority" };
+export const deleteTask = async (id) =>
+  (await query(`DELETE FROM tasks WHERE id = $1`, [id])).rowCount > 0;
 
-export async function updateTask(id, patch) {
-  const sets = [];
-  const params = [id];
-  for (const key of EDITABLE) {
-    if (key in patch) {
-      params.push(patch[key]);
-      const cast = ENUM_COLS[key] ? `::${ENUM_COLS[key]}` : "";
-      sets.push(`${key} = $${params.length}${cast}`);
-    }
-  }
-  if (sets.length === 0) return getTaskById(id);
-  sets.push(`updated_at = now()`);
-  const { rows } = await query(
-    `UPDATE tasks SET ${sets.join(", ")} WHERE id = $1 RETURNING *`,
-    params
-  );
-  return rows[0];
-}
+// Per-project rollup across the whole org.
+export const projectAnalytics = (orgId) =>
+  rows(`SELECT p.id, p.key, p.name, p.color,
+               count(t.id)::int AS total,
+               count(*) FILTER (WHERE c.name = 'Done')::int AS done,
+               count(*) FILTER (WHERE c.name <> 'Done' AND t.due_date < CURRENT_DATE)::int AS overdue,
+               count(*) FILTER (WHERE c.name <> 'Done' AND t.priority IN ('high','urgent'))::int AS high_priority
+          FROM projects p
+          LEFT JOIN tasks t ON t.project_id = p.id
+          LEFT JOIN columns c ON c.id = t.column_id
+         WHERE p.org_id = $1 GROUP BY p.id ORDER BY p.id`, [orgId]);
 
-// Move a task to a column at a target position, closing the gap in the old
-// column and opening one in the new. Wrapped in a transaction so the board
-// never reads a half-applied reorder.
-export async function moveTask(id, toColumnId, toPosition) {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const { rows: [task] } = await client.query(
-      `SELECT * FROM tasks WHERE id = $1 FOR UPDATE`, [id]
-    );
-    if (!task) { await client.query("ROLLBACK"); return null; }
-
-    const fromColumn = task.column_id;
-    const fromPos = task.position;
-
-    if (fromColumn === toColumnId) {
-      if (toPosition > fromPos) {
-        await client.query(
-          `UPDATE tasks SET position = position - 1
-             WHERE column_id = $1 AND position > $2 AND position <= $3`,
-          [toColumnId, fromPos, toPosition]
-        );
-      } else if (toPosition < fromPos) {
-        await client.query(
-          `UPDATE tasks SET position = position + 1
-             WHERE column_id = $1 AND position >= $2 AND position < $3`,
-          [toColumnId, toPosition, fromPos]
-        );
-      }
-    } else {
-      // close gap in old column
-      await client.query(
-        `UPDATE tasks SET position = position - 1
-           WHERE column_id = $1 AND position > $2`,
-        [fromColumn, fromPos]
-      );
-      // open gap in new column
-      await client.query(
-        `UPDATE tasks SET position = position + 1
-           WHERE column_id = $1 AND position >= $2`,
-        [toColumnId, toPosition]
-      );
-    }
-
-    const { rows: [moved] } = await client.query(
-      `UPDATE tasks SET column_id = $2, position = $3, updated_at = now()
-         WHERE id = $1 RETURNING *`,
-      [id, toColumnId, toPosition]
-    );
-    await client.query("COMMIT");
-    return moved;
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
-export async function deleteTask(id) {
-  const { rowCount } = await query(`DELETE FROM tasks WHERE id = $1`, [id]);
-  return rowCount > 0;
-}
-
-// Dashboard analytics: counts by status (column name) and by priority,
-// plus overdue and completion, computed in SQL.
-export async function projectAnalytics(orgId) {
-  const byStatus = await query(
-    `SELECT c.name, COUNT(t.id)::int AS value
-       FROM projects p
-       JOIN columns c ON c.project_id = p.id
-       LEFT JOIN tasks t ON t.column_id = c.id
-      WHERE p.org_id = $1
-      GROUP BY c.name
-      ORDER BY value DESC`,
-    [orgId]
-  );
-  const byPriority = await query(
-    `SELECT t.priority AS name, COUNT(*)::int AS value
-       FROM tasks t JOIN projects p ON p.id = t.project_id
-      WHERE p.org_id = $1
-      GROUP BY t.priority`,
-    [orgId]
-  );
-  const totals = await query(
-    `SELECT
-        COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE lower(c.name) = 'done')::int AS completed,
-        COUNT(*) FILTER (
-          WHERE t.due_date < CURRENT_DATE AND lower(c.name) <> 'done'
-        )::int AS overdue
-       FROM tasks t
-       JOIN projects p ON p.id = t.project_id
-       JOIN columns c ON c.id = t.column_id
-      WHERE p.org_id = $1`,
-    [orgId]
-  );
-  return {
-    byStatus: byStatus.rows,
-    byPriority: byPriority.rows,
-    totals: totals.rows[0],
-  };
-}
-
-// Cross-project text search over title and description.
-export async function searchTasks(orgId, term) {
-  const { rows } = await query(
-    `SELECT t.*, p.key AS project_key
-       FROM tasks t JOIN projects p ON p.id = t.project_id
-      WHERE p.org_id = $1
-        AND (t.title ILIKE $2 OR t.description ILIKE $2)
-      ORDER BY t.updated_at DESC
-      LIMIT 20`,
-    [orgId, `%${term}%`]
-  );
-  return rows;
-}
+export const searchTasks = (orgId, q) =>
+  rows(`SELECT t.*, p.key AS project_key, p.name AS project_name
+          FROM tasks t JOIN projects p ON p.id = t.project_id
+         WHERE p.org_id = $1 AND (t.title ILIKE $2 OR t.description ILIKE $2)
+         ORDER BY t.updated_at DESC LIMIT 50`, [orgId, `%${q}%`]);
