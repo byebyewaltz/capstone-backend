@@ -15,3 +15,17 @@ export const requireUser = h(async (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: "A valid token is required." });
   next();
 });
+
+// Runs after router.param("orgId") set req.org; sets req.membership.
+export const requireOrgMember = h(async (req, res, next) => {
+  req.membership = await getMembership(req.org.id, req.user.id);
+  if (!req.membership)
+    return res.status(403).json({ error: "You are not a member of this organization." });
+  next();
+});
+
+// Role gate: viewer < member < admin < owner.
+export const requireRole = (min) => (req, res, next) =>
+  RANK[req.membership?.role] >= RANK[min]
+    ? next()
+    : res.status(403).json({ error: `This action requires the ${min} role.` });
