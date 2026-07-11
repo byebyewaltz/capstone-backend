@@ -8,7 +8,6 @@ writes through real REST calls with a JWT held in `localStorage`.
 
 ## Tech stack
 
-<<<<<<< HEAD
 - **React 18** (hooks + Context API for app state)
 - **Vite 5** (dev server proxies `/auth`, `/orgs`, `/notifications` to the API on `:3000`)
 - **Recharts** — dashboard charts (status, priority, weekly activity, monthly growth)
