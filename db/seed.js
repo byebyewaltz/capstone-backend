@@ -216,18 +216,19 @@ async function main() {
   for (const [user, body, title] of N) {
     await createNotification({ userId: user.id, body, taskId: byTitle[title]?.id ?? null });
   }
-  // A couple already read, so the bell isn't uniformly unread.
-  await query(`UPDATE notifications SET is_read = true
-                WHERE user_id = $1 AND id IN (
-                  SELECT id FROM notifications WHERE user_id = $1 ORDER BY id LIMIT 2)`, [donna.id]);
+ 
+   // A couple already read, so the bell isn't uniformly unread.
+   await query(`UPDATE notifications SET is_read = true
+   WHERE user_id = $1 AND id IN (
+     SELECT id FROM notifications WHERE user_id = $1 ORDER BY id LIMIT 2)`, [donna.id]);
 
-  const counts = await query(`
-    SELECT (SELECT count(*) FROM users) users, (SELECT count(*) FROM organizations) orgs,
-           (SELECT count(*) FROM projects) projects, (SELECT count(*) FROM tasks) tasks,
-           (SELECT count(*) FROM comments) comments, (SELECT count(*) FROM attachments) files,
-           (SELECT count(*) FROM notifications) notifs`);
-  console.log("Seed complete:", counts.rows[0]);
-  await pool.end();
+const counts = await query(`
+SELECT (SELECT count(*) FROM users) users, (SELECT count(*) FROM organizations) orgs,
+(SELECT count(*) FROM projects) projects, (SELECT count(*) FROM tasks) tasks,
+(SELECT count(*) FROM comments) comments, (SELECT count(*) FROM attachments) files,
+(SELECT count(*) FROM notifications) notifs`);
+console.log("Seed complete:", counts.rows[0]);
+await pool.end();
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });
