@@ -10,6 +10,29 @@ REST calls with a JWT held in `localStorage`.
 
 # TaskForge — full-stack team project management
 
+Tech Stack
+
+Frontend
+React 19
+React Router
+Context API
+Redux Toolkit
+Chart.js
+React Hook Form
+Tailwind CSS
+Framer Motion
+
+Backend
+Express.js
+Node.js
+PostgreSQL
+JWT Authentication
+bcrypt
+Socket.io (notifications)
+Database
+
+PostgreSQL
+
 A simplified Trello/Asana/Jira in two parts:
 
 - **taskforge-backend/** — Express 5 + PostgreSQL REST API (JWT auth, RBAC,
