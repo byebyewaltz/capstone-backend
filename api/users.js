@@ -1,28 +1,27 @@
 import express from "express";
-const router = express.Router();
-export default router;
-
 import { createUser, getUserByUsernameAndPassword } from "#db/queries/users";
 import requireBody from "#middleware/requireBody";
 import { createToken } from "#utils/jwt";
 
-router
-  .route("/register")
-  .post(requireBody(["username", "password"]), async (req, res) => {
-    const { username, password } = req.body;
-    const user = await createUser(username, password);
+const router = express.Router();
+export default router;
 
-    const token = await createToken({ id: user.id });
-    res.status(201).send(token);
-  });
+const authFields = requireBody(["username", "password"]);
 
-router
-  .route("/login")
-  .post(requireBody(["username", "password"]), async (req, res) => {
-    const { username, password } = req.body;
-    const user = await getUserByUsernameAndPassword(username, password);
-    if (!user) return res.status(401).send("Invalid username or password.");
+const sendToken = async (res, user, status = 200) =>
+  res.status(status).send(await createToken({ id: user.id }));
 
-    const token = await createToken({ id: user.id });
-    res.send(token);
-  });
+router.post("/register", authFields, async (req, res) => {
+  const { username, password } = req.body;
+  await sendToken(res, await createUser(username, password), 201);
+});
+
+router.post("/login", authFields, async (req, res) => {
+  const { username, password } = req.body;
+  const user = await getUserByUsernameAndPassword(username, password);
+
+  if (!user)
+    return res.status(401).send("Invalid username or password.");
+
+  await sendToken(res, user);
+});
