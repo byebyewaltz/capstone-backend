@@ -10,7 +10,12 @@ REST calls with a JWT held in `localStorage`.
 
 # TaskForge — full-stack team project management
 
-Tech Stack
+Use relational data modeling, SQL (joins, aggregates, CTEs, transactions, locking), REST API design, Express middleware architecture, JWT auth + bcrypt, role-based authorization and multi-tenant isolation, centralized error handling, React with Context/hooks, optimistic UI and drag-and-drop, client-side API abstraction, data visualization with Recharts, seeding/demo-data engineering, API testing, and environment-based configuration.
+
+The through-line that makes it a good capstone: every rule is enforced at the right layer — the database constrains what can exist, the API constrains who can do what, and the UI merely reflects those rules back to the user.
+
+
+# Tech Stack
 
 Frontend
 React 19
