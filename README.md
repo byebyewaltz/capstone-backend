@@ -20,7 +20,7 @@ A simplified Trello/Asana/Jira in two parts:
 
 ```bash
 # 1. Backend
-cd taskforge-api
+cd taskforge-backend
 npm install
 # edit .env -> DATABASE_URL for your Postgres, then:
 npm run db:reset && npm run db:seed
@@ -28,7 +28,7 @@ npm start                      # http://localhost:3000
 npm test                       # 18 passing
 
 # 2. Frontend (new terminal)
-cd taskforge-web
+cd taskforge-frontend
 npm install
 npm run dev                    # http://localhost:5173
 ```
