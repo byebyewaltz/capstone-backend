@@ -1,12 +1,21 @@
-# TaskForge
+# TaskForge — Frontend
 
-Team project-management API: organizations, members with roles, kanban
-project boards, tasks with drag-and-drop ordering, comments, attachments,
-and notifications.
+React + Vite client for TaskForge, a team project-management app: organizations,
+members with roles, kanban boards with drag-and-drop, task comments and
+attachments, dashboard analytics, and notifications. It talks to the Express +
+PostgreSQL API in `../taskforge-backend` — no mock data; every screen reads and
+writes through real REST calls with a JWT held in `localStorage`.
 
-React + Vite frontend for TaskForge, wired to the Express + PostgreSQL API in
-`../taskforge-backend`. No mock data — every screen reads and writes through real
-REST calls with a JWT held in `localStorage`.
+## Tech stack
+
+<<<<<<< HEAD
+- **React 18** (hooks + Context API for app state)
+- **Vite 5** (dev server proxies `/auth`, `/orgs`, `/notifications` to the API on `:3000`)
+- **Recharts** — dashboard charts (status, priority, weekly activity, monthly growth)
+- **lucide-react** — icons
+- Hand-rolled CSS (`src/styles.css`), no framework
+  
+=======
 
 # TaskForge — full-stack team project management
 
@@ -14,49 +23,24 @@ Use relational data modeling, SQL (joins, aggregates, CTEs, transactions, lockin
 
 The through-line that makes it a good capstone: every rule is enforced at the right layer — the database constrains what can exist, the API constrains who can do what, and the UI merely reflects those rules back to the user.
 
-
-# Tech Stack
-
-Frontend
-React 19
-React Router
-Context API
-Redux Toolkit
-Chart.js
-React Hook Form
-Tailwind CSS
-Framer Motion
-
-Backend
-Express.js
-Node.js
-PostgreSQL
-JWT Authentication
-bcrypt
-Socket.io (notifications)
-Database
-
-PostgreSQL
-
 A simplified Trello/Asana/Jira in two parts:
 
 - **taskforge-backend/** — Express 5 + PostgreSQL REST API (JWT auth, RBAC,
   normalized schema, transactional drag-and-drop, 18-test suite).
 - **taskforge-frontend/** — React + Vite frontend wired to that API (no mock data).
+>>>>>>> 0a14dcffb652a1190ef0b386d38a6bd629300385
 
 ## Quick start
-
-```bash
-# 1. Backend
+```
+# 1. Backend (see ../taskforge-backend/README.md)
 cd taskforge-backend
 npm install
 # edit .env -> DATABASE_URL for your Postgres, then:
 npm run db:reset && npm run db:seed
 npm start                      # http://localhost:3000
-npm test                       # 18 passing
 
 # 2. Frontend (new terminal)
-cd taskforge-frontend
+cd Capstone-Frontend
 npm install
 npm run dev                    # http://localhost:5173
 ```
@@ -65,49 +49,16 @@ Sign in with a demo identity (password `password123`):
 Donna = owner, Marcus = admin, Priya = member, Leo = viewer. The role changes
 what the UI permits, enforced server-side by role-guarded routes.
 
-See each folder's README for endpoint reference and architecture notes.
-
-## Setup
-
-```bash
-npm install
-cp .env.example .env    # set DATABASE_URL and JWT_SECRET
-npm run db:reset        # apply db/schema.sql
-npm run db:seed         # optional demo data
-npm start               # serve on :3000 (or PORT)
-```
-
-## Tests
-
-Both suites run against the database in `DATABASE_URL` and reset it.
-
-```bash
-npm test              # runs both suites
-npm run test:node     # node:test suite (resets + seeds, then exercises the API)
-npm run test:vitest   # vitest + supertest suite (applies schema, builds its own data)
-```
-
-## Layout
-
-```
-app.js            express app: /health, /auth, /orgs, /notifications, 404, errors
-server.js         boots the app
-db/               pg pool, schema, reset/seed scripts, query layer per domain
-middleware/       auth (JWT + role guards), requireBody, central error handler
-routes/           auth, orgs (nests projects, which nest tasks), notifications
-test/             api.test.js (node:test), api.vitest.test.js (vitest)
-```
-
 ## Roles
 
 `viewer < member < admin < owner`. Viewers read; members manage tasks,
 comments, and attachments; admins manage projects and members; the owner
-(exactly one, seated at org creation) can delete the org.
+(exactly one, seated at org creation) has full control.
 
-| Action              | Owner | Admin | Manager | Member      |
-| ------------------- | ----- | ----- | ------- | ----------- |
-| Create Organization | ✅    | ❌    | ❌      | ❌          |
-| Invite Users        | ✅    | ✅    | ✅      | ❌          |
-| Delete Projects     | ✅    | ✅    | ❌      | ❌          |
-| Edit Tasks          | ✅    | ✅    | ✅      | Assign Only |
-| View Boards         | ✅    | ✅    | ✅      | ✅          |
+| Action              | Owner | Admin | Member | Viewer |
+| ------------------- | ----- | ----- | ------ | ------ |
+| Create organization | ✅    | ✅    | ❌     | ❌     |
+| Manage members      | ✅    | ✅    | ❌     | ❌     |
+| Create projects     | ✅    | ✅    | ❌     | ❌     |
+| Create / edit tasks | ✅    | ✅    | ✅     | ❌     |
+| View boards         | ✅    | ✅    | ✅     | ✅     |
