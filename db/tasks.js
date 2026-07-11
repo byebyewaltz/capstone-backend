@@ -203,3 +203,87 @@ export async function projectAnalytics(orgId) {
     perProject: perProject.rows,
   };
 }
+
+// Task creation vs. completion for each of the last 7 days. The schema keeps
+// no status-change history, so "completed" means currently sitting in a Done
+// column and last touched that day — a snapshot proxy, not a true completion
+// timestamp.
+export async function weeklyActivity(orgId) {
+  const { rows } = await query(
+    `WITH days AS (
+       SELECT generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day')::date AS day
+     )
+     SELECT to_char(d.day, 'Dy')                 AS day,
+            d.day                                AS date,
+            COALESCE(created.n, 0)::int          AS created,
+            COALESCE(completed.n, 0)::int        AS completed
+       FROM days d
+       LEFT JOIN (
+         SELECT t.created_at::date AS day, count(*) AS n
+           FROM tasks t JOIN projects p ON p.id = t.project_id
+          WHERE p.org_id = $1 AND t.created_at >= CURRENT_DATE - INTERVAL '6 days'
+          GROUP BY 1
+       ) created ON created.day = d.day
+       LEFT JOIN (
+         SELECT t.updated_at::date AS day, count(*) AS n
+           FROM tasks t
+           JOIN projects p ON p.id = t.project_id
+           JOIN columns c ON c.id = t.column_id
+          WHERE p.org_id = $1 AND c.name = 'Done' AND t.updated_at >= CURRENT_DATE - INTERVAL '6 days'
+          GROUP BY 1
+       ) completed ON completed.day = d.day
+      ORDER BY d.day`,
+    [orgId]
+  );
+  return rows;
+}
+
+// Cumulative task count as of each month-end for the last 6 months, split
+// into total created vs. those currently Done — a growth trend, not a replay
+// of history (same snapshot-proxy caveat as weeklyActivity).
+export async function monthlyGrowth(orgId) {
+  const { rows } = await query(
+    `WITH months AS (
+       SELECT generate_series(
+         date_trunc('month', CURRENT_DATE) - INTERVAL '5 months',
+         date_trunc('month', CURRENT_DATE),
+         INTERVAL '1 month'
+       )::date AS month_start
+     )
+     SELECT to_char(m.month_start, 'Mon')                                AS month,
+            m.month_start                                                AS date,
+            (SELECT count(*)::int FROM tasks t
+               JOIN projects p ON p.id = t.project_id
+              WHERE p.org_id = $1
+                AND t.created_at < m.month_start + INTERVAL '1 month')    AS total,
+            (SELECT count(*)::int FROM tasks t
+               JOIN projects p ON p.id = t.project_id
+               JOIN columns c ON c.id = t.column_id
+              WHERE p.org_id = $1 AND c.name = 'Done'
+                AND t.created_at < m.month_start + INTERVAL '1 month')    AS completed
+       FROM months m
+      ORDER BY m.month_start`,
+    [orgId]
+  );
+  return rows;
+}
+
+// Due-date density for one calendar month (monthStart is the first-of-month
+// date) — powers the dashboard's calendar view.
+export async function calendarActivity(orgId, monthStart) {
+  const { rows } = await query(
+    `SELECT t.due_date::date                                       AS date,
+            count(*)::int                                          AS count,
+            bool_or(c.name <> 'Done' AND t.due_date < CURRENT_DATE) AS overdue
+       FROM tasks t
+       JOIN projects p ON p.id = t.project_id
+       JOIN columns c ON c.id = t.column_id
+      WHERE p.org_id = $1
+        AND t.due_date >= $2::date
+        AND t.due_date <  ($2::date + INTERVAL '1 month')
+      GROUP BY t.due_date
+      ORDER BY t.due_date`,
+    [orgId, monthStart]
+  );
+  return rows;
+}

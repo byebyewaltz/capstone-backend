@@ -58,9 +58,16 @@ const TASKS = [
   ["WEB","Review","Copywriting pass on homepage","medium",2,3,"Sentence case, active voice, no filler."],
   ["WEB","Review","QA cross-browser rendering","high",5,4,"Safari, Firefox, Chrome, and mobile webkit."],
   ["WEB","Review","Lighthouse performance budget","high",1,2,"Target 95+ on mobile. Watch the font loading."],
+  ["WEB","Backlog","Set up A/B testing framework","low",3,24,"Feature-flag driven, no client-side flicker."],
+  ["WEB","Backlog","Image optimization pipeline","medium",7,19,"AVIF with JPEG fallback, responsive srcsets."],
+  ["WEB","In Progress","Newsletter signup flow","low",4,8,"Double opt-in with a short welcome sequence."],
+  ["WEB","Backlog","Add structured data for SEO","low",1,21,"JSON-LD for articles and the org profile."],
   ["WEB","Done","Set up CI pipeline","high",1,-3,"Vitest + Supertest on push to main."],
   ["WEB","Done","Finalize hosting + DNS","medium",0,-6,"Cutover plan with rollback window."],
   ["WEB","Done","Choose the CDN","low",7,-9,"Edge caching for static assets."],
+  ["WEB","Done","Remove jQuery from legacy pages","medium",1,-12,"Four pages still pulled 1.9. Gone now."],
+  ["WEB","Done","Compress hero imagery","low",6,-16,"Cut the homepage payload by 60%."],
+  ["WEB","Done","Set up staging environment","high",9,-20,"Mirrors prod, reseeded nightly."],
 
   // ── MOB ────────────────────────────────────────────────────────────────
   ["MOB","Backlog","Offline caching strategy","medium",3,14,"Decide between SW cache and local DB."],
@@ -72,8 +79,13 @@ const TASKS = [
   ["MOB","In Progress","Offline queue for task edits","urgent",9,-2,"Edits made offline must reconcile on reconnect."],
   ["MOB","QA","Regression pass on iOS 17","medium",3,5,"Focus on the drag interactions."],
   ["MOB","QA","Battery drain profiling","medium",7,8,"Background sync is suspiciously hungry."],
+  ["MOB","Backlog","Widget for today's tasks","low",5,26,"Home-screen widget, iOS and Android."],
+  ["MOB","In Progress","Haptic feedback pass","low",4,10,"Subtle taps on drag, drop, and complete."],
+  ["MOB","QA","Verify offline sync on flaky networks","high",9,3,"Throttle to 2G and airplane-mode mid-save."],
   ["MOB","Done","Set up crash reporting","medium",1,-4,"Wire Sentry into release builds."],
   ["MOB","Done","App Store screenshots","low",4,-7,"Six devices, three locales."],
+  ["MOB","Done","Migrate to the new build pipeline","high",7,-10,"CI builds are 40% faster."],
+  ["MOB","Done","Fix keyboard overlap on comment box","medium",3,-13,"The composer now scrolls into view."],
 
   // ── BPI ────────────────────────────────────────────────────────────────
   ["BPI","Backlog","Moodboard for new wordmark","medium",0,8,"Editorial, warm, a little unexpected."],
@@ -81,8 +93,11 @@ const TASKS = [
   ["BPI","Backlog","Photography art direction","medium",8,17,"Natural light, no stock-photo smiles."],
   ["BPI","In Progress","Refine logo grid","medium",4,3,"Tighten the mark on a 12-col baseline."],
   ["BPI","In Progress","Write the brand voice guide","medium",8,9,"Ten dos, ten don'ts, with real examples."],
+  ["BPI","Backlog","Design email signature set","low",8,28,""],
+  ["BPI","In Progress","Social media templates","medium",8,6,"Nine formats from one master layout."],
   ["BPI","Done","Pick primary typeface","high",0,-2,"Fraunces wins for display."],
   ["BPI","Done","Lock the core palette","medium",0,-11,"Terracotta, paper, ink. Three accents."],
+  ["BPI","Done","Icon set — first twelve glyphs","medium",4,-15,"Consistent 2px stroke on a 24px grid."],
 
   // ── INF ────────────────────────────────────────────────────────────────
   ["INF","Backlog","Evaluate managed Postgres options","medium",9,13,"Compare cost at 500GB and 5k connections."],
@@ -91,15 +106,23 @@ const TASKS = [
   ["INF","In Progress","Add read replicas","high",9,4,"Route analytics queries away from primary."],
   ["INF","In Progress","Structured logging","medium",7,6,"JSON lines, one request id end to end."],
   ["INF","Review","Rotate all service credentials","urgent",1,-1,"Quarterly rotation is overdue."],
+  ["INF","Backlog","Rate limiting on the public API","high",9,16,"Token bucket per key, 429 with Retry-After."],
+  ["INF","In Progress","Alert on error-budget burn","medium",7,5,"Page only when the burn rate says we'll miss SLO."],
   ["INF","Done","Terraform the staging env","high",9,-5,"Staging now matches prod within a version."],
   ["INF","Done","Enable automated backups","urgent",1,-14,"Nightly, encrypted, off-region."],
+  ["INF","Done","Postgres minor version upgrade","medium",9,-18,"Zero downtime via replica promotion."],
+  ["INF","Done","Set up uptime monitoring","medium",7,-21,"Alerts route to the on-call channel."],
 
   // ── RES ────────────────────────────────────────────────────────────────
   ["RES","Backlog","Recruit five power users","medium",10,12,"Screener: uses the board daily, 3+ months."],
   ["RES","Backlog","Draft the interview protocol","medium",10,7,"Open questions. Never lead the witness."],
   ["RES","In Progress","Synthesize onboarding interviews","high",10,2,"Eight sessions transcribed; themes emerging."],
+  ["RES","Backlog","Diary study for mobile usage","low",10,30,"Two weeks, twelve participants."],
   ["RES","In Progress","Card-sort the navigation","medium",2,5,"Open sort, 20 participants."],
+  ["RES","In Progress","Pricing sensitivity survey","medium",10,4,"Van Westendorp, 200 responses target."],
   ["RES","Done","Ship the churn survey","medium",10,-8,"142 responses. Pricing is not the problem."],
+  ["RES","Done","Competitive teardown","medium",2,-19,"Six competitors, feature and pricing matrix."],
+  ["RES","Done","Analytics audit of drop-off points","high",10,-23,"Signup step three loses 40% of users."],
 ];
 
 /* Comments: [taskTitle, authorIdx, body] */
@@ -124,6 +147,14 @@ const COMMENTS = [
   ["Lighthouse performance budget", 1, "Font preload got us from 78 to 94. One more push."],
   ["Reduce cold-start time", 7, "Deferring the analytics SDK saved 600ms."],
   ["Implement dark mode tokens", 6, "Pure black looks awful against terracotta. Using #1A1613."],
+  ["Regression pass on iOS 17", 7, "Drag drops the card if a notification lands mid-gesture. Repro attached."],
+  ["Battery drain profiling", 3, "Sync interval was 30s in release builds. Bumping to 5m."],
+  ["Rate limiting on the public API", 1, "Start with 100 req/min per key and watch the logs."],
+  ["Social media templates", 0, "The story format needs a safe zone for the caption."],
+  ["Pricing sensitivity survey", 2, "Let's segment by team size when we analyze."],
+  ["Analytics audit of drop-off points", 10, "The password rules are the culprit — nobody reads them until they fail."],
+  ["Newsletter signup flow", 4, "Confirmation email lands in spam on Outlook. Investigating DKIM."],
+  ["Build responsive nav component", 6, "Focus trap works; arrow-key support next."],
 ];
 
 /* Attachments: [taskTitle, uploaderIdx, filename, bytes] */
@@ -138,6 +169,10 @@ const FILES = [
   ["Ship the churn survey", 10, "churn-results.csv", 76000],
   ["Photography art direction", 8, "reference-shots.zip", 8900000],
   ["Copywriting pass on homepage", 2, "homepage-copy-v3.docx", 34000],
+  ["Regression pass on iOS 17", 3, "drag-bug-repro.mov", 5600000],
+  ["Social media templates", 8, "template-master.fig", 2300000],
+  ["Competitive teardown", 2, "teardown-matrix.xlsx", 145000],
+  ["Analytics audit of drop-off points", 10, "funnel-report.pdf", 210000],
 ];
 
 async function main() {
@@ -212,15 +247,61 @@ async function main() {
     [priya,  `Donna commented on \u201CAudit current information architecture\u201D`, "Audit current information architecture"],
     [kenji,  `Marcus commented on \u201COffline queue for task edits\u201D`, "Offline queue for task edits"],
     [amara,  `Priya commented on \u201CSynthesize onboarding interviews\u201D`, "Synthesize onboarding interviews"],
+    [donna,  `Iris commented on \u201CImplement dark mode tokens\u201D`,  "Implement dark mode tokens"],
+    [donna,  `\u201CShip the churn survey\u201D was moved to Done`,      "Ship the churn survey"],
+    [priya,  `Amara commented on \u201CAnalytics audit of drop-off points\u201D`, "Analytics audit of drop-off points"],
+    [sana,   `Noah commented on \u201CNewsletter signup flow\u201D`,     "Newsletter signup flow"],
+    [noah,   `Leo commented on \u201CBattery drain profiling\u201D`,     "Battery drain profiling"],
   ];
   for (const [user, body, title] of N) {
     await createNotification({ userId: user.id, body, taskId: byTitle[title]?.id ?? null });
   }
- 
+
    // A couple already read, so the bell isn't uniformly unread.
   await query(`UPDATE notifications SET is_read = true
                 WHERE user_id = $1 AND id IN (
                   SELECT id FROM notifications WHERE user_id = $1 ORDER BY id LIMIT 2)`, [donna.id]);
+
+  /* --------------------- backdate timestamps for charts ------------------ */
+  // Everything above was inserted "now", which flattens the dashboard: the
+  // weekly chart shows a single spike and the monthly growth chart a cliff.
+  // Spread task creation across the last ~5 months in a growth curve, keep a
+  // busy final week, and stamp Done tasks with completion times through the
+  // last 7 days so both activity charts have real shape.
+  const all = Object.values(byTitle);
+  for (let i = 0; i < all.length; i++) {
+    const frac = i / all.length; // 0 = oldest … 1 = newest
+    const daysAgo = i % 4 === 0
+      ? i % 7                                       // every 4th task lands in the last week
+      : Math.round(150 * Math.pow(1 - frac, 1.7));  // the rest curve up over ~5 months
+    await query(
+      `UPDATE tasks
+          SET created_at = now() - make_interval(days => $2, hours => (id % 9) + 1),
+              updated_at = now() - make_interval(days => $2, hours => id % 9)
+        WHERE id = $1`,
+      [all[i].id, daysAgo]
+    );
+  }
+
+  // Done tasks "completed" (last touched) on a rotation through the past week,
+  // never earlier than they were created.
+  const { rows: doneTasks } = await query(
+    `SELECT t.id FROM tasks t JOIN columns c ON c.id = t.column_id WHERE c.name = 'Done' ORDER BY t.id`
+  );
+  for (let i = 0; i < doneTasks.length; i++) {
+    await query(
+      `UPDATE tasks
+          SET updated_at = GREATEST(created_at, now() - make_interval(days => $2, hours => 3))
+        WHERE id = $1`,
+      [doneTasks[i].id, i % 7]
+    );
+  }
+
+  // Scatter comment/attachment/notification times over recent days so the
+  // task drawer and bell don't read "just now" on every row.
+  await query(`UPDATE comments      SET created_at = now() - make_interval(hours => (id * 7)  % 200)`);
+  await query(`UPDATE attachments   SET created_at = now() - make_interval(hours => (id * 13) % 340)`);
+  await query(`UPDATE notifications SET created_at = now() - make_interval(hours => (id * 5)  % 70)`);
 
   const counts = await query(`
     SELECT (SELECT count(*) FROM users) users, (SELECT count(*) FROM organizations) orgs,

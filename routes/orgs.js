@@ -6,6 +6,7 @@ import {
   listAssignableDirectory, getMembershipById, addMember, setRole, removeMember, deleteOrg,
 } from "#db/orgs";
 import { getUserByEmail, getUserById } from "#db/users";
+import { weeklyActivity, monthlyGrowth, calendarActivity } from "#db/tasks";
 import projectsRouter from "#routes/projects";
 
 const router = express.Router();
@@ -141,6 +142,34 @@ router.delete("/:orgId/members/:memberId", requireRole("admin"),
       res.json({ deleted: true });
     } catch (err) { next(err); }
   });
+
+/* ------------------------------ analytics --------------------------------- */
+// GET /orgs/:orgId/analytics/weekly — task creation/completion for each of
+// the last 7 days, for the dashboard's weekly chart.
+router.get("/:orgId/analytics/weekly", async (req, res, next) => {
+  try {
+    res.json(await weeklyActivity(req.org.id));
+  } catch (err) { next(err); }
+});
+
+// GET /orgs/:orgId/analytics/monthly — cumulative task totals for the last
+// 6 months, for the dashboard's monthly growth chart.
+router.get("/:orgId/analytics/monthly", async (req, res, next) => {
+  try {
+    res.json(await monthlyGrowth(req.org.id));
+  } catch (err) { next(err); }
+});
+
+// GET /orgs/:orgId/analytics/calendar?month=YYYY-MM — due-date density for
+// one month (defaults to the current month), for the dashboard's calendar.
+router.get("/:orgId/analytics/calendar", async (req, res, next) => {
+  try {
+    const month = /^\d{4}-\d{2}$/.test(req.query.month || "")
+      ? req.query.month
+      : new Date().toISOString().slice(0, 7);
+    res.json(await calendarActivity(req.org.id, `${month}-01`));
+  } catch (err) { next(err); }
+});
 
 // Nested project routes (which themselves nest tasks).
 router.use("/:orgId/projects", projectsRouter);
