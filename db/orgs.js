@@ -69,6 +69,20 @@ export async function listMembers(orgId) {
   return rows;
 }
 
+// Every user in the system, annotated with whether they already belong to
+// this org — the assignee/invite pickers need the full roster to offer
+// accounts that aren't members yet.
+export async function listAssignableDirectory(orgId) {
+  const { rows } = await query(
+    `SELECT u.id, u.name, u.email, u.color, (m.id IS NOT NULL) AS is_member
+       FROM users u
+       LEFT JOIN memberships m ON m.user_id = u.id AND m.org_id = $1
+      ORDER BY u.name`,
+    [orgId]
+  );
+  return rows;
+}
+
 export async function getMembership(orgId, userId) {
   const { rows } = await query(
     `SELECT * FROM memberships WHERE org_id = $1 AND user_id = $2`,

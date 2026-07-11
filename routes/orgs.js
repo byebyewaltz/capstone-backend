@@ -3,7 +3,7 @@ import requireBody from "#middleware/requireBody";
 import { requireUser, requireOrgMember, requireRole } from "#middleware/auth";
 import {
   getOrgById, createOrg, listOrgsForUser, getOrCreateDefaultOrg, listMembers,
-  getMembershipById, addMember, setRole, removeMember, deleteOrg,
+  listAssignableDirectory, getMembershipById, addMember, setRole, removeMember, deleteOrg,
 } from "#db/orgs";
 import { getUserByEmail, getUserById } from "#db/users";
 import projectsRouter from "#routes/projects";
@@ -87,7 +87,7 @@ router.get("/:orgId/members", async (req, res, next) => {
 // admins may enumerate the whole roster.
 router.get("/:orgId/assignable", requireRole("admin"), async (req, res, next) => {
   try {
-    res.json(await listMembers(req.org.id));
+    res.json(await listAssignableDirectory(req.org.id));
   } catch (err) { next(err); }
 });
 

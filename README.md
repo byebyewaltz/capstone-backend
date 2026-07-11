@@ -4,13 +4,17 @@ Team project-management API: organizations, members with roles, kanban
 project boards, tasks with drag-and-drop ordering, comments, attachments,
 and notifications.
 
+React + Vite frontend for TaskForge, wired to the Express + PostgreSQL API in
+`../taskforge-backend`. No mock data — every screen reads and writes through real
+REST calls with a JWT held in `localStorage`.
+
 # TaskForge — full-stack team project management
 
 A simplified Trello/Asana/Jira in two parts:
 
-- **taskforge-api/** — Express 5 + PostgreSQL REST API (JWT auth, RBAC,
+- **taskforge-backend/** — Express 5 + PostgreSQL REST API (JWT auth, RBAC,
   normalized schema, transactional drag-and-drop, 18-test suite).
-- **taskforge-web/** — React + Vite frontend wired to that API (no mock data).
+- **taskforge-frontend/** — React + Vite frontend wired to that API (no mock data).
 
 ## Quick start
 
@@ -71,3 +75,11 @@ test/             api.test.js (node:test), api.vitest.test.js (vitest)
 `viewer < member < admin < owner`. Viewers read; members manage tasks,
 comments, and attachments; admins manage projects and members; the owner
 (exactly one, seated at org creation) can delete the org.
+
+| Action              | Owner | Admin | Manager | Member      |
+| ------------------- | ----- | ----- | ------- | ----------- |
+| Create Organization | ✅    | ❌    | ❌      | ❌          |
+| Invite Users        | ✅    | ✅    | ✅      | ❌          |
+| Delete Projects     | ✅    | ✅    | ❌      | ❌          |
+| Edit Tasks          | ✅    | ✅    | ✅      | Assign Only |
+| View Boards         | ✅    | ✅    | ✅      | ✅          |
