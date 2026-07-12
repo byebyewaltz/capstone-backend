@@ -25,7 +25,6 @@ A simplified Trello/Asana/Jira in two parts:
 - **taskforge-backend/** — Express 5 + PostgreSQL REST API (JWT auth, RBAC,
   normalized schema, transactional drag-and-drop, 18-test suite).
 - **taskforge-frontend/** — React + Vite frontend wired to that API (no mock data).
->>>>>>> 0a14dcffb652a1190ef0b386d38a6bd629300385
 
 ## Quick start
 ```
