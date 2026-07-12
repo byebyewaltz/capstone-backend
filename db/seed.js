@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config();
 import pool, { query } from "#db/client";
 import { createUser } from "#db/users";
 import { createOrg, addMember } from "#db/orgs";

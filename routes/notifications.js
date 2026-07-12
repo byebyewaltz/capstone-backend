@@ -1,7 +1,8 @@
 import express from "express";
 import { requireUser } from "#middleware/auth";
-import { listNotifications, markRead, markAllRead } from "#db/activity";
-import { query } from "#db/client";
+import {
+  listNotifications, getNotificationById, markRead, markAllRead,
+} from "#db/activity";
 
 const router = express.Router();
 router.use(requireUser);
@@ -24,14 +25,11 @@ router.patch("/read-all", async (req, res, next) => {
 // PATCH /notifications/:id/read — only the owner may mark it.
 router.patch("/:id/read", async (req, res, next) => {
   try {
-    const { rows } = await query(
-      `SELECT * FROM notifications WHERE id = $1`, [Number(req.params.id)]
-    );
-    const notif = rows[0];
+    const notif = await getNotificationById(Number(req.params.id));
     if (!notif || notif.user_id !== req.user.id) {
       return res.status(404).json({ error: "Notification not found." });
     }
-    res.json(await markRead(notif.id));
+    res.json(await markRead(notif.id, req.user.id));
   } catch (err) { next(err); }
 });
 

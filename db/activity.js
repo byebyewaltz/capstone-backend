@@ -39,12 +39,7 @@ export const listAttachments = (taskId) =>
     [taskId]
   );
 
-export const addAttachment = ({
-  taskId,
-  userId,
-  filename,
-  sizeBytes = 0
-}) =>
+export const addAttachment = ({ taskId, userId, filename, sizeBytes = 0 }) =>
   first(
     `INSERT INTO attachments
       (task_id,user_id,filename,size_bytes)
@@ -87,11 +82,7 @@ export const listNotifications = (userId) =>
   );
 
 
-export const createNotification = ({
-  userId,
-  body,
-  taskId = null
-}) =>
+export const createNotification = ({ userId, body, taskId = null }) =>
   first(
     `INSERT INTO notifications(user_id,body,task_id)
      VALUES($1,$2,$3)
@@ -99,16 +90,17 @@ export const createNotification = ({
     [userId, body, taskId]
   );
 
+export const getNotificationById = (id) =>
+  first(`SELECT * FROM notifications WHERE id=$1`, [id]);
 
-export const markRead = (id,userId) =>
+export const markRead = (id, userId) =>
   first(
     `UPDATE notifications
         SET is_read=true
       WHERE id=$1 AND user_id=$2
       RETURNING *`,
-    [id,userId]
+    [id, userId]
   );
-
 
 export const markAllRead = async (userId) =>
   (await query(

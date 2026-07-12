@@ -1,3 +1,6 @@
+// Load the environment before reading JWT_SECRET: this module is evaluated
+// during import hoisting, before any caller's dotenv.config() line runs.
+import "dotenv/config";
 import jwt from "jsonwebtoken";
 import { getUserById } from "#db/users";
 import { getMembership } from "#db/orgs";

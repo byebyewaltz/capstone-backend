@@ -1,6 +1,5 @@
+import "dotenv/config";
 import pg from "pg";
-import dotenv from "dotenv";
-dotenv.config();
 
 // A single shared pool. Connection details come from the environment so the
 // same code runs against a local socket, Docker, or a managed instance.
