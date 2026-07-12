@@ -65,38 +65,38 @@ npm run lint      # eslint over src/
 
 ## Architecture
 
-ttaskforge-backend/
+taskforge-backend/
 ├── db/
-│ ├── queries/
-│ │ ├── users.js
-│ │ ├── organizations.js
-│ │ ├── boards.js
-│ │ ├── columns.js
-│ │ ├── tasks.js ← also holds weeklyActivity / monthlyGrowth analytics
-│ │ ├── comments.js
-│ │ ├── attachments.js
-│ │ ├── notifications.js
-│ │ └── analytics.js
-│ ├── client.js ← pg pool
-│ ├── schema.sql
-│ ├── setup.js
-│ └── seed.js ← d(offset) relative-date helper, backdated timestamps
+│   ├── queries/
+│   │   ├── users.js
+│   │   ├── organizations.js
+│   │   ├── boards.js
+│   │   ├── columns.js
+│   │   ├── tasks.js          ← also holds weeklyActivity / monthlyGrowth analytics
+│   │   ├── comments.js
+│   │   ├── attachments.js
+│   │   ├── notifications.js
+│   │   └── analytics.js
+│   ├── client.js             ← pg pool
+│   ├── schema.sql
+│   ├── setup.js
+│   └── seed.js               ← d(offset) relative-date helper, backdated timestamps
 ├── routes/
-│ ├── auth.js ← register (auto-join org), login
-│ ├── organizations.js ← nested routers mount under this
-│ ├── boards.js
-│ ├── tasks.js
-│ ├── analytics.js ← mergeParams sub-router, GET /weekly, /monthly
-│ └── notifications.js
+│   ├── auth.js               ← register (auto-join org), login
+│   ├── organizations.js      ← nested routers mount under this
+│   ├── boards.js
+│   ├── tasks.js
+│   ├── analytics.js          ← mergeParams sub-router, GET /weekly, /monthly
+│   └── notifications.js
 ├── middleware/
-│ ├── auth.js ← JWT verify, getUserFromToken
-│ ├── rbac.js ← owner > admin > member > viewer guards
-│ ├── requireBody.js
-│ └── error.js ← central handler, PG codes (23505→409, 23503/23502/22P02/23514→400)
+│   ├── auth.js               ← JWT verify, getUserFromToken
+│   ├── rbac.js               ← owner > admin > member > viewer guards
+│   ├── requireBody.js
+│   └── error.js              ← central handler, PG codes (23505→409, 23503/23502/22P02/23514→400)
 ├── app.js
 ├── server.js
 ├── .env
-└── package.json ← "type": "module" + imports map (#db/_, #routes/_, #middleware/\*)
+└── package.json              ← "type": "module" + imports map (#db/*, #routes/*, #middleware/*)
 
 ### Backend
 
