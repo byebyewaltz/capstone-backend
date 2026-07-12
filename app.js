@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json()); 
 
 // The analytics dashboard (charts) lives at "/".
 app.use(express.static(path.join(__dirname, "public")));
@@ -22,7 +22,7 @@ app.use("/auth", authRouter);
 app.use("/orgs", orgsRouter);
 app.use("/notifications", notificationsRouter);
 
-// Anything unmatched is a JSON 404, never an HTML error page.
+// Anything unmatched is a JSON 404, never an HTML error page. 
 app.use((req, res) => res.status(404).json({ error: "Not found." }));
 
 app.use(errorHandler);
