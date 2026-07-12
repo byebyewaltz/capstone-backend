@@ -67,6 +67,27 @@ npm run lint      # eslint over src/
 
 ## Architecture
 
+taskforge-backend/
+├── src/
+│   ├── views/
+│   │   ├── AuthGate.jsx      ← login/register + demo accounts
+│   │   ├── Sidebar.jsx
+│   │   ├── Topbar.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── DashboardCharts.jsx   ← Fig. 01 weekly bars, Fig. 02 growth composed chart
+│   │   ├── Board.jsx         ← Kanban, @hello-pangea/dnd, fractional positions
+│   │   ├── TaskDrawer.jsx
+│   │   ├── TeamView.jsx      ← rewritten with fixed role hierarchy
+│   │   └── SettingsView.jsx  ← org deletion danger zone
+│   ├── App.jsx               ← AppCtx provider, view routing, session boot
+│   ├── main.jsx
+│   ├── api.js                ← fetch wrapper + ApiError
+│   ├── constants.js          ← ROLES, ROLE_RANK, initials, tokens
+│   ├── styles.css            ← Drafting Sheet system (terracotta/paper, Fraunces/Inter/Plex Mono)
+│   └── dashboard-charts.css
+├── vite.config.js
+└── package.json              ← react 18, recharts, lucide-react, vite 5
+
 ### Backend
 
 **Runtime & modules.** Node.js with native ES modules and **subpath imports** for clean internal resolution:
