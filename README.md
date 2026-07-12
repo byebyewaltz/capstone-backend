@@ -65,7 +65,7 @@ npm run lint      # eslint over src/
 
 ## Architecture
 
-taskforge-frontend/
+taskforge-backend/
 ├── db/
 │   ├── queries/
 │   │   ├── users.js
