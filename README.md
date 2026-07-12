@@ -11,19 +11,19 @@ The through-line: **every rule is enforced at the right layer.** The database co
 
 ## Tech Stack
 
-| Layer              | Technology                                 |
-| ------------------ | ------------------------------------------ |
-| Runtime            | Node.js (native ES modules)                |
-| Backend framework  | Express 5                                  |
-| Database           | PostgreSQL                                 |
-| Auth               | JWT + bcryptjs, role-based access control  |
-| Frontend           | React 18 + Vite 5                          |
-| Routing (client)   | React Router 6                             |
-| State              | React Context + hooks                      |
-| Drag & drop        | @hello-pangea/dnd                          |
-| Charts             | Recharts                                   |
-| Icons              | lucide-react                               |
-| Styling            | Hand-rolled CSS (`src/styles.css`)         |
+| Layer             | Technology                                |
+| ----------------- | ----------------------------------------- |
+| Runtime           | Node.js (native ES modules)               |
+| Backend framework | Express 5                                 |
+| Database          | PostgreSQL                                |
+| Auth              | JWT + bcryptjs, role-based access control |
+| Frontend          | React 18 + Vite 5                         |
+| Routing (client)  | React Router 6                            |
+| State             | React Context + hooks                     |
+| Drag & drop       | @hello-pangea/dnd                         |
+| Charts            | Recharts                                  |
+| Icons             | lucide-react                              |
+| Styling           | Hand-rolled CSS (`src/styles.css`)        |
 
 ---
 
@@ -66,6 +66,39 @@ npm run lint      # eslint over src/
 ---
 
 ## Architecture
+
+taskforge-frontend/
+├── db/
+│ ├── queries/
+│ │ ├── users.js
+│ │ ├── organizations.js
+│ │ ├── boards.js
+│ │ ├── columns.js
+│ │ ├── tasks.js ← also holds weeklyActivity / monthlyGrowth analytics
+│ │ ├── comments.js
+│ │ ├── attachments.js
+│ │ ├── notifications.js
+│ │ └── analytics.js
+│ ├── client.js ← pg pool
+│ ├── schema.sql
+│ ├── setup.js
+│ └── seed.js ← d(offset) relative-date helper, backdated timestamps
+├── routes/
+│ ├── auth.js ← register (auto-join org), login
+│ ├── organizations.js ← nested routers mount under this
+│ ├── boards.js
+│ ├── tasks.js
+│ ├── analytics.js ← mergeParams sub-router, GET /weekly, /monthly
+│ └── notifications.js
+├── middleware/
+│ ├── auth.js ← JWT verify, getUserFromToken
+│ ├── rbac.js ← owner > admin > member > viewer guards
+│ ├── requireBody.js
+│ └── error.js ← central handler
+├── app.js
+├── server.js
+├── .env
+└── package.json ← "type": "module" + imports map (#db/_, #routes/_, #middleware/\*)
 
 ### Backend
 
@@ -125,7 +158,7 @@ src/views/            AuthGate, Sidebar, Topbar, Dashboard, Board, TaskDrawer,
 ### Design System — "Drafting Sheet"
 
 An editorial, ledger-inspired aesthetic carried through every chart and piece of UI chrome:
- 
+
 - **Accent:** terracotta `#C4623D`
 - **Background:** warm paper `#F4EFE6`
 - **Type stack:** Fraunces (display) · Inter (body) · IBM Plex Mono (data & code)
