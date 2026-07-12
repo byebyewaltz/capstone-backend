@@ -11,19 +11,19 @@ The through-line: **every rule is enforced at the right layer.** The database co
 
 ## Tech Stack
 
-| Layer              | Technology                                 |
-| ------------------ | ------------------------------------------ |
-| Runtime            | Node.js (native ES modules)                |
-| Backend framework  | Express 5                                  |
-| Database           | PostgreSQL                                 |
-| Auth               | JWT + bcryptjs, role-based access control  |
-| Frontend           | React 18 + Vite 5                          |
-| Routing (client)   | React Router 6                             |
-| State              | React Context + hooks                      |
-| Drag & drop        | @hello-pangea/dnd                          |
-| Charts             | Recharts                                   |
-| Icons              | lucide-react                               |
-| Styling            | Hand-rolled CSS (`src/styles.css`)         |
+| Layer             | Technology                                |
+| ----------------- | ----------------------------------------- |
+| Runtime           | Node.js (native ES modules)               |
+| Backend framework | Express 5                                 |
+| Database          | PostgreSQL                                |
+| Auth              | JWT + bcryptjs, role-based access control |
+| Frontend          | React 18 + Vite 5                         |
+| Routing (client)  | React Router 6                            |
+| State             | React Context + hooks                     |
+| Drag & drop       | @hello-pangea/dnd                         |
+| Charts            | Recharts                                  |
+| Icons             | lucide-react                              |
+| Styling           | Hand-rolled CSS (`src/styles.css`)        |
 
 ---
 
@@ -63,30 +63,40 @@ npm run preview   # serve the production build
 npm run lint      # eslint over src/
 ```
 
----
-
 ## Architecture
 
-taskforge-backend/
-├── src/
-│   ├── views/
-│   │   ├── AuthGate.jsx      ← login/register + demo accounts
-│   │   ├── Sidebar.jsx
-│   │   ├── Topbar.jsx
-│   │   ├── Dashboard.jsx
-│   │   ├── DashboardCharts.jsx   ← Fig. 01 weekly bars, Fig. 02 growth composed chart
-│   │   ├── Board.jsx         ← Kanban, @hello-pangea/dnd, fractional positions
-│   │   ├── TaskDrawer.jsx
-│   │   ├── TeamView.jsx      ← rewritten with fixed role hierarchy
-│   │   └── SettingsView.jsx  ← org deletion danger zone
-│   ├── App.jsx               ← AppCtx provider, view routing, session boot
-│   ├── main.jsx
-│   ├── api.js                ← fetch wrapper + ApiError
-│   ├── constants.js          ← ROLES, ROLE_RANK, initials, tokens
-│   ├── styles.css            ← Drafting Sheet system (terracotta/paper, Fraunces/Inter/Plex Mono)
-│   └── dashboard-charts.css
-├── vite.config.js
-└── package.json              ← react 18, recharts, lucide-react, vite 5
+taskforge-frontend/
+├── db/
+│   ├── queries/
+│   │   ├── users.js
+│   │   ├── organizations.js
+│   │   ├── boards.js
+│   │   ├── columns.js
+│   │   ├── tasks.js          ← also holds weeklyActivity / monthlyGrowth analytics
+│   │   ├── comments.js
+│   │   ├── attachments.js
+│   │   ├── notifications.js
+│   │   └── analytics.js
+│   ├── client.js             ← pg pool
+│   ├── schema.sql
+│   ├── setup.js
+│   └── seed.js               ← d(offset) relative-date helper, backdated timestamps
+├── routes/
+│   ├── auth.js               ← register (auto-join org), login
+│   ├── organizations.js      ← nested routers mount under this
+│   ├── boards.js
+│   ├── tasks.js
+│   ├── analytics.js          ← mergeParams sub-router, GET /weekly, /monthly
+│   └── notifications.js
+├── middleware/
+│   ├── auth.js               ← JWT verify, getUserFromToken
+│   ├── rbac.js               ← owner > admin > member > viewer guards
+│   ├── requireBody.js
+│   └── error.js              ← central handler, PG codes (23505→409, 23503/23502/22P02/23514→400)
+├── app.js
+├── server.js
+├── .env
+└── package.json              ← "type": "module" + imports map (#db/*, #routes/*, #middleware/*)
 
 ### Backend
 
@@ -146,7 +156,7 @@ src/views/            AuthGate, Sidebar, Topbar, Dashboard, Board, TaskDrawer,
 ### Design System — "Drafting Sheet"
 
 An editorial, ledger-inspired aesthetic carried through every chart and piece of UI chrome:
- 
+
 - **Accent:** terracotta `#C4623D`
 - **Background:** warm paper `#F4EFE6`
 - **Type stack:** Fraunces (display) · Inter (body) · IBM Plex Mono (data & code)
