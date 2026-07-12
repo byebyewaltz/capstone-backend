@@ -164,7 +164,7 @@ An editorial, ledger-inspired aesthetic carried through every chart and piece of
 ---
 
 ## Roles & Permissions
-
+ 
 `viewer < member < admin < owner`. Viewers read; members manage tasks, comments, and attachments; admins manage projects and members; the owner (exactly one, seated at org creation) has full control.
 
 | Action              | Owner | Admin | Member | Viewer |
