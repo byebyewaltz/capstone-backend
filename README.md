@@ -125,7 +125,7 @@ src/views/            AuthGate, Sidebar, Topbar, Dashboard, Board, TaskDrawer,
 ### Design System — "Drafting Sheet"
 
 An editorial, ledger-inspired aesthetic carried through every chart and piece of UI chrome:
-
+ 
 - **Accent:** terracotta `#C4623D`
 - **Background:** warm paper `#F4EFE6`
 - **Type stack:** Fraunces (display) · Inter (body) · IBM Plex Mono (data & code)
