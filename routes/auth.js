@@ -11,7 +11,7 @@ const router = express.Router();
 // POST /auth/register
 // New accounts join the default workspace, so nobody ever lands in the app
 // without an organization context. The very first account on a fresh database
-// founds that workspace and owns it; everyone after joins as a member.
+// founds that workspace and owns it; everyone after joins as a member. 
 router.post("/register", requireBody("name", "email", "password"), async (req, res, next) => {
   try {
     const { name, email, password, color } = req.body;
