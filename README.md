@@ -14,8 +14,6 @@ writes through real REST calls with a JWT held in `localStorage`.
 - **lucide-react** — icons
 - Hand-rolled CSS (`src/styles.css`), no framework
   
-=======
-
 # TaskForge — full-stack team project management
 
 Use relational data modeling, SQL (joins, aggregates, CTEs, transactions, locking), REST API design, Express middleware architecture, JWT auth + bcrypt, role-based authorization and multi-tenant isolation, centralized error handling, React with Context/hooks, optimistic UI and drag-and-drop, client-side API abstraction, data visualization with Recharts, seeding/demo-data engineering, API testing, and environment-based configuration.
