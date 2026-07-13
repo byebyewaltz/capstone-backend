@@ -67,7 +67,7 @@ The through-line of the design: **every rule is enforced at the right layer.** T
 | Layer              | Technology                                                        |
 | ------------------ | ----------------------------------------------------------------- |
 | Runtime            | Node.js (native ES modules + subpath imports)                     |
-| Backend framework  | Express 4                                                         |
+| Backend framework  | Express 5                                                         |
 | Database           | PostgreSQL via `pg` (connection pool, parameterized queries)      |
 | Auth               | `jsonwebtoken` (JWT bearer tokens) + `bcryptjs` password hashing  |
 | Config             | `dotenv` (`.env` → `PORT`, `DATABASE_URL`, `JWT_SECRET`)          |
