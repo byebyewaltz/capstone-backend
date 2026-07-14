@@ -63,11 +63,9 @@ npm run preview   # serve the production build
 npm run lint      # eslint over src/
 ```
 
----
-
 ## Architecture
 
-taskforge-frontend/
+taskforge-backend/
 ├── db/
 │ ├── queries/
 │ │ ├── users.js
@@ -94,11 +92,28 @@ taskforge-frontend/
 │ ├── auth.js ← JWT verify, getUserFromToken
 │ ├── rbac.js ← owner > admin > member > viewer guards
 │ ├── requireBody.js
-│ └── error.js ← central handler
+│ └── error.js ← central handler, PG codes (23505→409, 23503/23502/22P02/23514→400)
 ├── app.js
 ├── server.js
 ├── .env
 └── package.json ← "type": "module" + imports map (#db/_, #routes/_, #middleware/\*)
+
+taskforge-frontend/
+├── src/
+│   ├── views/
+│   │   ├── AuthGate.jsx      # login / register + demo accounts
+│   │   ├── Sidebar.jsx
+│   │   ├── Topbar.jsx        # global debounced search, notification bell
+│   │   ├── Dashboard.jsx
+│   │   ├── DashboardCharts.jsx
+│   │   ├── Board.jsx         # Kanban with drag-and-drop
+│   │   ├── TaskDrawer.jsx    # details, comments, attachments
+│   │   ├── TeamView.jsx      # member & role administration
+│   │   └── Settings.jsx
+│   ├── api.js                # typed fetch wrapper; carries JWT, throws ApiError
+│   ├── App.jsx               # session bootstrap via GET /auth/me
+│   └── styles.css            # design system
+└── vite.config.js
 
 ### Backend
 

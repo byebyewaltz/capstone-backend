@@ -1,11 +1,10 @@
-import { query, getClient } from "#db/client";
+import { query, first, all, withTransaction } from "#db/client";
 
-export async function getTaskById(id) {
-  const { rows } = await query(`SELECT * FROM tasks WHERE id = $1`, [id]);
-  return rows[0];
+export function getTaskById(id) {
+  return first(`SELECT * FROM tasks WHERE id = $1`, [id]);
 }
 
-export async function listTasks(projectId, { priority, assigneeId } = {}) {
+export function listTasks(projectId, { priority, assigneeId } = {}) {
   const conditions = ["project_id = $1"];
   const params = [projectId];
   if (priority) {
@@ -16,19 +15,18 @@ export async function listTasks(projectId, { priority, assigneeId } = {}) {
     params.push(assigneeId);
     conditions.push(`assignee_id = $${params.length}`);
   }
-  const { rows } = await query(
+  return all(
     `SELECT * FROM tasks WHERE ${conditions.join(" AND ")}
       ORDER BY column_id, position`,
     params
   );
-  return rows;
 }
 
 // New tasks land at the bottom of their column.
-export async function createTask({
+export function createTask({
   projectId, columnId, title, description, priority, assigneeId, dueDate, createdBy,
 }) {
-  const { rows } = await query(
+  return first(
     `INSERT INTO tasks
        (project_id, column_id, title, description, priority,
         assignee_id, due_date, position, created_by)
@@ -40,33 +38,29 @@ export async function createTask({
     [projectId, columnId, title, description ?? null, priority ?? null,
      assigneeId ?? null, dueDate ?? null, createdBy]
   );
-  return rows[0];
 }
 
 // Applies a partial update. Keys are already column names (the route maps
 // camelCase input); anything outside the whitelist is ignored.
 const PATCHABLE = ["title", "description", "priority", "assignee_id", "due_date", "column_id"];
 
-export async function updateTask(id, patch) {
+export function updateTask(id, patch) {
   const keys = Object.keys(patch).filter((k) => PATCHABLE.includes(k));
   if (keys.length === 0) return getTaskById(id);
 
   const sets = keys.map((k, i) => `${k} = $${i + 2}`);
-  const { rows } = await query(
+  return first(
     `UPDATE tasks SET ${sets.join(", ")}, updated_at = now()
       WHERE id = $1 RETURNING *`,
     [id, ...keys.map((k) => patch[k])]
   );
-  return rows[0];
 }
 
 // Drag-and-drop. The whole reorder is one transaction: close the gap in the
 // source column, open one at the target position, and drop the task in. Both
 // columns keep contiguous positions 0..n-1 with no gaps or duplicates.
-export async function moveTask(id, toColumnId, toPosition) {
-  const client = await getClient();
-  try {
-    await client.query("BEGIN");
+export function moveTask(id, toColumnId, toPosition) {
+  return withTransaction(async (client) => {
     const { rows } = await client.query(
       `SELECT * FROM tasks WHERE id = $1 FOR UPDATE`, [id]
     );
@@ -95,21 +89,13 @@ export async function moveTask(id, toColumnId, toPosition) {
       [toColumnId, position, id]
     );
 
-    await client.query("COMMIT");
     return updated[0];
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 // Deleting a task closes the gap it leaves so column positions stay contiguous.
-export async function deleteTask(id) {
-  const client = await getClient();
-  try {
-    await client.query("BEGIN");
+export function deleteTask(id) {
+  return withTransaction(async (client) => {
     const { rows } = await client.query(
       `DELETE FROM tasks WHERE id = $1 RETURNING column_id, position`, [id]
     );
@@ -120,19 +106,13 @@ export async function deleteTask(id) {
         [rows[0].column_id, rows[0].position]
       );
     }
-    await client.query("COMMIT");
     return Boolean(rows[0]);
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /* --------------------------- search & analytics --------------------------- */
-export async function searchTasks(orgId, q) {
-  const { rows } = await query(
+export function searchTasks(orgId, q) {
+  return all(
     `SELECT t.*, p.key AS project_key, p.name AS project_name
        FROM tasks t
        JOIN projects p ON p.id = t.project_id
@@ -141,7 +121,6 @@ export async function searchTasks(orgId, q) {
       ORDER BY t.id`,
     [orgId, q]
   );
-  return rows;
 }
 
 // Org-wide board analytics.
@@ -152,7 +131,7 @@ export async function searchTasks(orgId, q) {
 //   perProject  — { id, key, name, total, done } for each board
 export async function projectAnalytics(orgId) {
   const [byStatus, byPriority, totals, perProject] = await Promise.all([
-    query(
+    all(
       `SELECT c.name, count(t.id)::int AS count
          FROM columns c
          JOIN projects p ON p.id = c.project_id
@@ -162,7 +141,7 @@ export async function projectAnalytics(orgId) {
         ORDER BY min(c.position)`,
       [orgId]
     ),
-    query(
+    all(
       `SELECT t.priority::text AS name, count(*)::int AS count
          FROM tasks t
          JOIN projects p ON p.id = t.project_id
@@ -171,7 +150,7 @@ export async function projectAnalytics(orgId) {
         ORDER BY t.priority`,
       [orgId]
     ),
-    query(
+    first(
       `SELECT count(t.id)::int AS total,
               (count(t.id) FILTER (WHERE c.name = 'Done'))::int AS completed,
               (count(t.id) FILTER (WHERE t.due_date < CURRENT_DATE
@@ -182,7 +161,7 @@ export async function projectAnalytics(orgId) {
         WHERE p.org_id = $1`,
       [orgId]
     ),
-    query(
+    all(
       `SELECT p.id, p.key, p.name,
               count(t.id)::int AS total,
               (count(t.id) FILTER (WHERE c.name = 'Done'))::int AS done
@@ -196,20 +175,15 @@ export async function projectAnalytics(orgId) {
     ),
   ]);
 
-  return {
-    byStatus: byStatus.rows,
-    byPriority: byPriority.rows,
-    totals: totals.rows[0],
-    perProject: perProject.rows,
-  };
+  return { byStatus, byPriority, totals, perProject };
 }
 
 // Task creation vs. completion for each of the last 7 days. The schema keeps
 // no status-change history, so "completed" means currently sitting in a Done
 // column and last touched that day — a snapshot proxy, not a true completion
 // timestamp.
-export async function weeklyActivity(orgId) {
-  const { rows } = await query(
+export function weeklyActivity(orgId) {
+  return all(
     `WITH days AS (
        SELECT generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day')::date AS day
      )
@@ -235,14 +209,13 @@ export async function weeklyActivity(orgId) {
       ORDER BY d.day`,
     [orgId]
   );
-  return rows;
 }
 
 // Cumulative task count as of each month-end for the last 6 months, split
 // into total created vs. those currently Done — a growth trend, not a replay
 // of history (same snapshot-proxy caveat as weeklyActivity).
-export async function monthlyGrowth(orgId) {
-  const { rows } = await query(
+export function monthlyGrowth(orgId) {
+  return all(
     `WITH months AS (
        SELECT generate_series(
          date_trunc('month', CURRENT_DATE) - INTERVAL '5 months',
@@ -265,13 +238,12 @@ export async function monthlyGrowth(orgId) {
       ORDER BY m.month_start`,
     [orgId]
   );
-  return rows;
 }
 
 // Due-date density for one calendar month (monthStart is the first-of-month
 // date) — powers the dashboard's calendar view.
-export async function calendarActivity(orgId, monthStart) {
-  const { rows } = await query(
+export function calendarActivity(orgId, monthStart) {
+  return all(
     `SELECT t.due_date::date                                       AS date,
             count(*)::int                                          AS count,
             bool_or(c.name <> 'Done' AND t.due_date < CURRENT_DATE) AS overdue
@@ -285,5 +257,4 @@ export async function calendarActivity(orgId, monthStart) {
       ORDER BY t.due_date`,
     [orgId, monthStart]
   );
-  return rows;
 }

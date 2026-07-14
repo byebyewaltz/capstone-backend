@@ -1,32 +1,27 @@
 import bcrypt from "bcryptjs";
-import { query } from "#db/client";
+import { query, first } from "#db/client";
 
 const SAFE = "id, name, email, color, created_at";
 
 export async function createUser({ name, email, password, color }) {
   const hash = await bcrypt.hash(password, 10);
-  const { rows } = await query(
+  return first(
     `INSERT INTO users (name, email, password_hash, color)
      VALUES ($1, $2, $3, COALESCE($4, '#C4623D'))
      RETURNING ${SAFE}`,
     [name, email.toLowerCase(), hash, color]
   );
-  return rows[0];
 }
 
-export async function getUserByEmail(email) {
-  const { rows } = await query(`SELECT * FROM users WHERE email = $1`, [
-    email.toLowerCase(),
-  ]);
-  return rows[0];
+export function getUserByEmail(email) {
+  return first(`SELECT * FROM users WHERE email = $1`, [email.toLowerCase()]);
 }
 
-export async function getUserById(id) {
-  const { rows } = await query(`SELECT ${SAFE} FROM users WHERE id = $1`, [id]);
-  return rows[0];
+export function getUserById(id) {
+  return first(`SELECT ${SAFE} FROM users WHERE id = $1`, [id]);
 }
 
-export async function verifyPassword(user, password) {
+export function verifyPassword(user, password) {
   return bcrypt.compare(password, user.password_hash);
 }
 

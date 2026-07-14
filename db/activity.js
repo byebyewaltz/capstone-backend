@@ -1,10 +1,4 @@
-import { query } from "#db/client";
-
-const first = async (sql, params = []) =>
-  (await query(sql, params)).rows[0];
-
-const all = async (sql, params = []) =>
-  (await query(sql, params)).rows;
+import { query, first, all } from "#db/client";
 
 /* ---------------- comments ---------------- */
 
