@@ -67,7 +67,7 @@ The through-line of the design: **every rule is enforced at the right layer.** T
 | Layer              | Technology                                                        |
 | ------------------ | ----------------------------------------------------------------- |
 | Runtime            | Node.js (native ES modules + subpath imports)                     |
-| Backend framework  | Express 5                                                         |
+| Backend framework  | Express 4                                                         |
 | Database           | PostgreSQL via `pg` (connection pool, parameterized queries)      |
 | Auth               | `jsonwebtoken` (JWT bearer tokens) + `bcryptjs` password hashing  |
 | Config             | `dotenv` (`.env` → `PORT`, `DATABASE_URL`, `JWT_SECRET`)          |
@@ -95,11 +95,14 @@ Capstone - TaskForge/
 │   ├── server.js                  boot: loads .env, starts app on :3000
 │   ├── app.js                     Express app: routers, /health, 404, errors
 │   ├── package.json               "type": "module" + subpath imports
-│   │                              (#app, #db/*, #middleware/*, #routes/*)
+│   │                              (#app, #db/*, #lib/*, #middleware/*, #routes/*)
+│   ├── vitest.config.js           loads .env into the Vitest environment
 │   ├── .env                       PORT, DATABASE_URL, JWT_SECRET
 │   ├── db/
 │   │   ├── client.js              pg connection pool
 │   │   ├── schema.sql             full DDL: tables, enums, indexes
+│   │   ├── schema.js              applySchema(): reads + runs schema.sql
+│   │   │                          (shared by reset.js and the Vitest setup)
 │   │   ├── reset.js               drop + recreate schema   (npm run db:reset)
 │   │   ├── seed.js                demo data with backdated timestamps
 │   │   ├── seedData.js            people, projects, and ~100 seeded tasks
@@ -108,10 +111,17 @@ Capstone - TaskForge/
 │   │   ├── projects.js            projects + columns
 │   │   ├── tasks.js               task CRUD, transactional move, analytics
 │   │   └── activity.js            comments, attachments, notifications
+│   ├── lib/
+│   │   ├── dates.js               "YYYY-MM-DD" due-date normalization
+│   │   ├── notifications.js       notify helpers — never ping the actor
+│   │   └── validate.js            assignee-in-org & column-in-project checks
 │   ├── middleware/
 │   │   ├── auth.js                signToken, requireUser, requireOrgMember,
 │   │   │                          requireRole (viewer < member < admin < owner)
+│   │   ├── loadResource.js        fetch-or-404 loaders; foreign ids look
+│   │   │                          identical to missing ones
 │   │   ├── requireBody.js         declarative required-field validation
+│   │   ├── asyncHandler.js        routes rejected promises into next(err)
 │   │   └── errorHandler.js        central handler; maps PG error codes → HTTP
 │   ├── routes/
 │   │   ├── auth.js                register (auto-join org), login, me, delete
