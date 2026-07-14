@@ -40,9 +40,17 @@ export function createTask({
   );
 }
 
+// The one list of what a PATCH may touch: API field names (camelCase) mapped
+// to their columns. The route uses it to shape request bodies; updateTask
+// derives its whitelist from it, so the two can never drift apart.
+export const TASK_PATCH_FIELDS = {
+  title: "title", description: "description", priority: "priority",
+  assigneeId: "assignee_id", dueDate: "due_date", columnId: "column_id",
+};
+
 // Applies a partial update. Keys are already column names (the route maps
 // camelCase input); anything outside the whitelist is ignored.
-const PATCHABLE = ["title", "description", "priority", "assignee_id", "due_date", "column_id"];
+const PATCHABLE = Object.values(TASK_PATCH_FIELDS);
 
 export function updateTask(id, patch) {
   const keys = Object.keys(patch).filter((k) => PATCHABLE.includes(k));

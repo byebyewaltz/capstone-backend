@@ -8,6 +8,7 @@ import { notify, notifyAssigned } from "#lib/notifications";
 import { ymd } from "#lib/dates";
 import {
   getTaskById, createTask, updateTask, moveTask, deleteTask, listTasks,
+  TASK_PATCH_FIELDS,
 } from "#db/tasks";
 import {
   listComments, addComment, listAttachments, addAttachment,
@@ -56,12 +57,8 @@ router.get("/:taskId", (req, res) => res.json(req.task));
 
 // PATCH task — edit fields. Maps camelCase input to column names.
 router.patch("/:taskId", requireRole("member"), asyncHandler(async (req, res) => {
-  const map = {
-    title: "title", description: "description", priority: "priority",
-    assigneeId: "assignee_id", dueDate: "due_date", columnId: "column_id",
-  };
   const patch = {};
-  for (const [k, col] of Object.entries(map)) {
+  for (const [k, col] of Object.entries(TASK_PATCH_FIELDS)) {
     if (k in req.body) patch[col] = req.body[k] === "" ? null : req.body[k];
   }
   // Reassignment must stay inside the organization.
