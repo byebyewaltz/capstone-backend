@@ -1,10 +1,4 @@
-import { query } from "#db/client";
-
-const first = async (sql, params = []) =>
-  (await query(sql, params)).rows[0];
-
-const all = async (sql, params = []) =>
-  (await query(sql, params)).rows;
+import { first, all, affected } from "#db/client";
 
 /* ---------------- comments ---------------- */
 
@@ -52,10 +46,10 @@ export const getAttachmentById = (id) =>
   first(`SELECT * FROM attachments WHERE id=$1`, [id]);
 
 export const deleteAttachment = async (id) =>
-  (await query(
+  (await affected(
     `DELETE FROM attachments WHERE id=$1`,
     [id]
-  )).rowCount > 0;
+  )) > 0;
 
 
 /* ---------------- notifications ---------------- */
@@ -102,10 +96,10 @@ export const markRead = (id, userId) =>
     [id, userId]
   );
 
-export const markAllRead = async (userId) =>
-  (await query(
+export const markAllRead = (userId) =>
+  affected(
     `UPDATE notifications
         SET is_read=true
       WHERE user_id=$1`,
     [userId]
-  )).rowCount;
+  );

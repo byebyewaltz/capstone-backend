@@ -13,10 +13,19 @@ const PG_MAP = {
   "23514": [400, "A field failed a constraint check."],
 };
 
+// Builds an error the handler below will render as that HTTP response, for
+// business-rule failures raised from helpers rather than route handlers.
+export function httpError(status, message) {
+  return Object.assign(new Error(message), { status });
+}
+
 export default function errorHandler(err, req, res, _next) {
   if (err && PG_MAP[err.code]) {
     const [status, message] = PG_MAP[err.code];
-    return res.status(status).json({ error: message, detail: err.detail });
+    // PG's `detail` names columns and echoes values, so it stays out of
+    // production responses; in development it makes 4xx causes obvious.
+    const detail = process.env.NODE_ENV === "production" ? undefined : err.detail;
+    return res.status(status).json({ error: message, detail });
   }
   if (err && err.status) {
     return res.status(err.status).json({ error: err.message });
