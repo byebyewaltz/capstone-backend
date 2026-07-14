@@ -107,21 +107,26 @@ const loadMember = loadResource("memberId", {
   belongsTo: (member, req) => member.org_id === req.org.id,
 });
 
+// The owner is untouchable through the members API — the same guard protects
+// both mutations below, each with its own explanation. Runs after loadMember.
+const forbidOwner = (message) => (req, res, next) => {
+  if (req.member.role === "owner") {
+    return res.status(403).json({ error: message });
+  }
+  next();
+};
+
 // Change a role — admins and up. Cannot alter an owner.
 router.patch("/:orgId/members/:memberId", requireRole("admin"),
-  requireBody("role"), loadMember, asyncHandler(async (req, res) => {
-    if (req.member.role === "owner") {
-      return res.status(403).json({ error: "An owner's role cannot be changed." });
-    }
+  requireBody("role"), loadMember, forbidOwner("An owner's role cannot be changed."),
+  asyncHandler(async (req, res) => {
     res.json(await setRole(req.member.id, req.body.role));
   }));
 
 // Remove a member — admins and up. Cannot remove an owner.
 router.delete("/:orgId/members/:memberId", requireRole("admin"),
-  loadMember, asyncHandler(async (req, res) => {
-    if (req.member.role === "owner") {
-      return res.status(403).json({ error: "An owner cannot be removed." });
-    }
+  loadMember, forbidOwner("An owner cannot be removed."),
+  asyncHandler(async (req, res) => {
     await removeMember(req.member.id);
     res.json({ deleted: true });
   }));

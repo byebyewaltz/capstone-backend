@@ -1,4 +1,4 @@
-import { query, first, all, withTransaction } from "#db/client";
+import { query, first, all, affected, withTransaction } from "#db/client";
 
 export function getOrgById(id) {
   return first(`SELECT * FROM organizations WHERE id = $1`, [id]);
@@ -108,8 +108,7 @@ export function setRole(membershipId, role) {
 }
 
 export async function removeMember(membershipId) {
-  const { rowCount } = await query(`DELETE FROM memberships WHERE id = $1`, [membershipId]);
-  return rowCount > 0;
+  return (await affected(`DELETE FROM memberships WHERE id = $1`, [membershipId])) > 0;
 }
 
 /* ------------------------------ deletion --------------------------------- */

@@ -14,6 +14,10 @@ export const query = (text, params) => pool.query(text, params);
 export const all = async (text, params) => (await query(text, params)).rows;
 export const first = async (text, params) => (await query(text, params)).rows[0];
 
+// For UPDATE/DELETE statements the interesting result is how many rows were
+// touched (callers compare against 0 for a did-it-happen boolean).
+export const affected = async (text, params) => (await query(text, params)).rowCount;
+
 // Runs fn inside BEGIN/COMMIT on one dedicated connection, rolling back and
 // rethrowing if it throws. fn receives the client to issue its queries on.
 export async function withTransaction(fn) {

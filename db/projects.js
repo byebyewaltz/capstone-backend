@@ -1,4 +1,4 @@
-import { first, all, withTransaction } from "#db/client";
+import { query, first, all, withTransaction } from "#db/client";
 
 export function getProjectById(id) {
   return first(`SELECT * FROM projects WHERE id = $1`, [id]);
@@ -6,6 +6,16 @@ export function getProjectById(id) {
 
 export function listProjectsForOrg(orgId) {
   return all(`SELECT * FROM projects WHERE org_id = $1 ORDER BY id`, [orgId]);
+}
+
+// The one place that knows how a column row is written. Project creation
+// passes its transaction client's query; other callers (the seed script's
+// extra columns) use the pool default.
+export function addColumn(projectId, name, position, q = query) {
+  return q(
+    `INSERT INTO columns (project_id, name, position) VALUES ($1, $2, $3)`,
+    [projectId, name, position]
+  );
 }
 
 // Every board starts life with the same three columns; the project and its
@@ -22,10 +32,7 @@ export function createProject({ orgId, name, key, color }) {
     );
     const project = rows[0];
     for (let i = 0; i < DEFAULT_COLUMNS.length; i++) {
-      await client.query(
-        `INSERT INTO columns (project_id, name, position) VALUES ($1, $2, $3)`,
-        [project.id, DEFAULT_COLUMNS[i], i]
-      );
+      await addColumn(project.id, DEFAULT_COLUMNS[i], i, (text, params) => client.query(text, params));
     }
     return project;
   }); // 23505 (duplicate key within org) maps to 409 centrally

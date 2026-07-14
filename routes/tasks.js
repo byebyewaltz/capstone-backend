@@ -2,58 +2,20 @@ import express from "express";
 import requireBody from "#middleware/requireBody";
 import asyncHandler from "#middleware/asyncHandler";
 import { resourceParam, loadResource } from "#middleware/loadResource";
-import { httpError } from "#middleware/errorHandler";
 import { requireRole } from "#middleware/auth";
+import { resolveAssignee, resolveColumn } from "#lib/validate";
+import { notify, notifyAssigned } from "#lib/notifications";
+import { ymd } from "#lib/dates";
 import {
   getTaskById, createTask, updateTask, moveTask, deleteTask, listTasks,
 } from "#db/tasks";
 import {
   listComments, addComment, listAttachments, addAttachment,
-  getAttachmentById, deleteAttachment, createNotification,
+  getAttachmentById, deleteAttachment,
 } from "#db/activity";
-import { getColumnById } from "#db/projects";
-import { getMembership } from "#db/orgs";
 
 // mergeParams so :orgId and :projectId from the parent chain are visible here.
 const router = express.Router({ mergeParams: true });
-
-// A task may only be assigned to someone who belongs to the same organization.
-// Without this, assigning to an outsider would create a notification carrying
-// the task title and project id into an org they cannot otherwise see.
-async function resolveAssignee(orgId, assigneeId) {
-  if (assigneeId === undefined || assigneeId === null || assigneeId === "") return null;
-  const id = Number(assigneeId);
-  if (!Number.isInteger(id)) {
-    throw httpError(400, "Assignee must be a user id.");
-  }
-  const membership = await getMembership(Number(orgId), id);
-  if (!membership) {
-    throw httpError(422, "That person is not a member of this organization.");
-  }
-  return id;
-}
-
-// Notifies a user about task activity — unless they are the actor themselves;
-// nobody needs a ping about their own edit.
-function notify(actor, userId, body, taskId) {
-  if (userId && userId !== actor.id) {
-    return createNotification({ userId, body, taskId });
-  }
-}
-
-// pg returns DATE columns as local-midnight Date objects while request bodies
-// carry "YYYY-MM-DD" strings; normalize both so due dates compare correctly.
-function ymd(d) {
-  if (d == null || d === "") return null;
-  if (d instanceof Date) {
-    return [
-      d.getFullYear(),
-      String(d.getMonth() + 1).padStart(2, "0"),
-      String(d.getDate()).padStart(2, "0"),
-    ].join("-");
-  }
-  return String(d).slice(0, 10);
-}
 
 // Centralized 404 + record attachment for any :taskId route.
 router.param("taskId", resourceParam({
@@ -74,10 +36,8 @@ router.get("/", asyncHandler(async (req, res) => {
 router.post("/", requireRole("member"), requireBody("title", "columnId"),
   asyncHandler(async (req, res) => {
     const { title, columnId, description, priority, assigneeId, dueDate } = req.body;
-    const column = await getColumnById(Number(columnId));
-    if (!column || column.project_id !== Number(req.params.projectId)) {
-      return res.status(400).json({ error: "Column does not belong to this project." });
-    }
+    await resolveColumn(columnId, req.params.projectId,
+      "Column does not belong to this project.");
     const assignee = await resolveAssignee(req.params.orgId, assigneeId);
     const task = await createTask({
       projectId: Number(req.params.projectId),
@@ -88,8 +48,7 @@ router.post("/", requireRole("member"), requireBody("title", "columnId"),
       createdBy: req.user.id,
     });
     // Notify the assignee if someone else assigned them.
-    await notify(req.user, task.assignee_id,
-      `${req.user.name} assigned you “${task.title}”`, task.id);
+    await notifyAssigned(req.user, task);
     res.status(201).json(task);
   }));
 
@@ -119,8 +78,7 @@ router.patch("/:taskId", requireRole("member"), asyncHandler(async (req, res) =>
 
   if (reassigned) {
     // The new owner hears they've been given the task.
-    await notify(req.user, updated.assignee_id,
-      `${req.user.name} assigned you “${updated.title}”`, updated.id);
+    await notifyAssigned(req.user, updated);
     // The previous owner hears it moved off their plate.
     await notify(req.user, before.assignee_id,
       `${req.user.name} reassigned “${updated.title}”`, updated.id);
@@ -146,10 +104,8 @@ router.patch("/:taskId", requireRole("member"), asyncHandler(async (req, res) =>
 router.post("/:taskId/move", requireRole("member"),
   requireBody("toColumnId", "toPosition"), asyncHandler(async (req, res) => {
     const { toColumnId, toPosition } = req.body;
-    const column = await getColumnById(Number(toColumnId));
-    if (!column || column.project_id !== req.task.project_id) {
-      return res.status(400).json({ error: "Target column is not in this project." });
-    }
+    const column = await resolveColumn(toColumnId, req.task.project_id,
+      "Target column is not in this project.");
     const moved = await moveTask(req.task.id, Number(toColumnId), Number(toPosition));
     // A column change is a status change — worth telling the assignee about.
     if (moved.column_id !== req.task.column_id) {

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { query, first } from "#db/client";
+import { first, affected } from "#db/client";
 
 const SAFE = "id, name, email, color, created_at";
 
@@ -28,6 +28,5 @@ export function verifyPassword(user, password) {
 // Hard-deletes the account. FK rules SET NULL on authored content and CASCADE
 // on the user's memberships and notifications, so this is a clean removal.
 export async function deleteUser(id) {
-  const { rowCount } = await query(`DELETE FROM users WHERE id = $1`, [id]);
-  return rowCount > 0;
+  return (await affected(`DELETE FROM users WHERE id = $1`, [id])) > 0;
 }

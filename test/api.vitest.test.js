@@ -1,8 +1,8 @@
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import request from "supertest";
-import fs from "node:fs";
 import app from "#app";
 import pool from "#db/client";
+import { applySchema } from "#db/schema";
 
 const api = request(app);
 const auth = (t) => ({ Authorization: `Bearer ${t}` });
@@ -10,9 +10,7 @@ const auth = (t) => ({ Authorization: `Bearer ${t}` });
 let alice, bob, carol, dave; // { user, token, org }
 let org2, project, cols, task;
 
-beforeAll(async () => {
-  await pool.query(fs.readFileSync(new URL("../db/schema.sql", import.meta.url), "utf8"));
-});
+beforeAll(() => applySchema());
 afterAll(() => pool.end());
 
 const register = async (name, email) => {

@@ -56,6 +56,17 @@ export function updateTask(id, patch) {
   );
 }
 
+// Shifts every task sitting past `position` in a column up one slot, closing
+// the gap a task leaves when it moves away or is deleted — columns keep
+// contiguous positions 0..n-1. Runs on the caller's transaction client.
+function closeGap(client, columnId, position) {
+  return client.query(
+    `UPDATE tasks SET position = position - 1
+      WHERE column_id = $1 AND position > $2`,
+    [columnId, position]
+  );
+}
+
 // Drag-and-drop. The whole reorder is one transaction: close the gap in the
 // source column, open one at the target position, and drop the task in. Both
 // columns keep contiguous positions 0..n-1 with no gaps or duplicates.
@@ -66,11 +77,7 @@ export function moveTask(id, toColumnId, toPosition) {
     );
     const task = rows[0];
 
-    await client.query(
-      `UPDATE tasks SET position = position - 1
-        WHERE column_id = $1 AND position > $2`,
-      [task.column_id, task.position]
-    );
+    await closeGap(client, task.column_id, task.position);
 
     const { rows: [{ n }] } = await client.query(
       `SELECT count(*)::int AS n FROM tasks WHERE column_id = $1 AND id <> $2`,
@@ -100,11 +107,7 @@ export function deleteTask(id) {
       `DELETE FROM tasks WHERE id = $1 RETURNING column_id, position`, [id]
     );
     if (rows[0]) {
-      await client.query(
-        `UPDATE tasks SET position = position - 1
-          WHERE column_id = $1 AND position > $2`,
-        [rows[0].column_id, rows[0].position]
-      );
+      await closeGap(client, rows[0].column_id, rows[0].position);
     }
     return Boolean(rows[0]);
   });

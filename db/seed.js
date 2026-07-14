@@ -1,19 +1,14 @@
 import pool, { query } from "#db/client";
 import { createUser } from "#db/users";
 import { createOrg, addMember } from "#db/orgs";
-import { createProject, listColumns } from "#db/projects";
+import { createProject, addColumn, listColumns } from "#db/projects";
 import { createTask } from "#db/tasks";
 import { addComment, addAttachment, createNotification } from "#db/activity";
+import { daysFromNow as d } from "#lib/dates";
 import { PEOPLE, PROJECTS, TASKS, COMMENTS, FILES, NOTIFS } from "#db/seedData";
 
-/* Dates are always relative to the run, so the demo never looks stale. */
-const d = (offset) => {
-  const x = new Date();
-  x.setDate(x.getDate() + offset);
-  return x.toISOString().slice(0, 10);
-};
-
-/* Each function walks one table from seedData.js. */
+/* Each function walks one table from seedData.js. Dates are always relative
+   to the run (see daysFromNow), so the demo never looks stale. */
 
 async function seedUsers() {
   const users = [];
@@ -39,8 +34,7 @@ async function seedProjects(orgId) {
     // Defaults are Backlog(0) / In Progress(1) / Done(2); extras slot in
     // before Done so the flow reads left to right.
     for (const [i, extra] of extras.entries())
-      await query(`INSERT INTO columns (project_id, name, position) VALUES ($1, $2, $3)`,
-        [p.id, extra, 2 + i]);
+      await addColumn(p.id, extra, 2 + i);
     await query(`UPDATE columns SET position = $2 WHERE project_id = $1 AND name = 'Done'`,
       [p.id, 2 + extras.length]);
     const cols = await listColumns(p.id);
