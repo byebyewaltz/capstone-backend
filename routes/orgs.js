@@ -8,7 +8,7 @@ import {
   listAssignableDirectory, getMembershipById, addMember, setRole, removeMember, deleteOrg,
 } from "#db/orgs";
 import { getUserByEmail, getUserById } from "#db/users";
-import { weeklyActivity, monthlyGrowth, calendarActivity } from "#db/tasks";
+import { weeklyActivity, monthlyGrowth } from "#db/tasks";
 import projectsRouter from "#routes/projects";
 
 const router = express.Router();
@@ -116,10 +116,14 @@ const forbidOwner = (message) => (req, res, next) => {
   next();
 };
 
-// Change a role — admins and up. Cannot alter an owner.
+// Change a role — admins and up. Cannot alter an owner, and (as with adding
+// members) the owner role can never be granted: there is exactly one owner.
 router.patch("/:orgId/members/:memberId", requireRole("admin"),
   requireBody("role"), loadMember, forbidOwner("An owner's role cannot be changed."),
   asyncHandler(async (req, res) => {
+    if (req.body.role === "owner") {
+      return res.status(403).json({ error: "The owner role cannot be granted." });
+    }
     res.json(await setRole(req.member.id, req.body.role));
   }));
 
@@ -142,15 +146,6 @@ router.get("/:orgId/analytics/weekly", asyncHandler(async (req, res) => {
 // 6 months, for the dashboard's monthly growth chart.
 router.get("/:orgId/analytics/monthly", asyncHandler(async (req, res) => {
   res.json(await monthlyGrowth(req.org.id));
-}));
-
-// GET /orgs/:orgId/analytics/calendar?month=YYYY-MM — due-date density for
-// one month (defaults to the current month), for the dashboard's calendar.
-router.get("/:orgId/analytics/calendar", asyncHandler(async (req, res) => {
-  const month = /^\d{4}-\d{2}$/.test(req.query.month || "")
-    ? req.query.month
-    : new Date().toISOString().slice(0, 7);
-  res.json(await calendarActivity(req.org.id, `${month}-01`));
 }));
 
 // Nested project routes (which themselves nest tasks).

@@ -106,6 +106,9 @@ describe("orgs & members", () => {
       .set(auth(alice.token)).send({ role: "member" })).status).toBe(403);
     expect((await api.delete(`/orgs/${org2.id}/members/${owner.id}`)
       .set(auth(alice.token))).status).toBe(403);
+    // The owner role cannot be granted through a role change either.
+    expect((await api.patch(`/orgs/${org2.id}/members/${carolM.id}`)
+      .set(auth(alice.token)).send({ role: "owner" })).status).toBe(403);
     const res = await api.patch(`/orgs/${org2.id}/members/${carolM.id}`)
       .set(auth(alice.token)).send({ role: "admin" });
     expect(res.body.role).toBe("admin");

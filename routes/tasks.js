@@ -55,11 +55,21 @@ router.post("/", requireRole("member"), requireBody("title", "columnId"),
 
 router.get("/:taskId", (req, res) => res.json(req.task));
 
+// Columns where an empty string from the client means "clear this field".
+// title/description are NOT NULL in the schema, so they must never be nulled:
+// an emptied description is stored as '', and an empty title is refused.
+const CLEARABLE = new Set(["assignee_id", "due_date"]);
+
 // PATCH task — edit fields. Maps camelCase input to column names.
 router.patch("/:taskId", requireRole("member"), asyncHandler(async (req, res) => {
+  if ("title" in req.body && !String(req.body.title ?? "").trim()) {
+    return res.status(400).json({ error: "Title cannot be empty." });
+  }
   const patch = {};
   for (const [k, col] of Object.entries(TASK_PATCH_FIELDS)) {
-    if (k in req.body) patch[col] = req.body[k] === "" ? null : req.body[k];
+    if (k in req.body) {
+      patch[col] = req.body[k] === "" && CLEARABLE.has(col) ? null : req.body[k];
+    }
   }
   // Reassignment must stay inside the organization.
   if ("assignee_id" in patch) {

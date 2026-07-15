@@ -1,4 +1,4 @@
-import { query, first, all, withTransaction } from "#db/client";
+import { first, all, withTransaction } from "#db/client";
 
 export function getTaskById(id) {
   return first(`SELECT * FROM tasks WHERE id = $1`, [id]);
@@ -248,24 +248,5 @@ export function monthlyGrowth(orgId) {
        FROM months m
       ORDER BY m.month_start`,
     [orgId]
-  );
-}
-
-// Due-date density for one calendar month (monthStart is the first-of-month
-// date) — powers the dashboard's calendar view.
-export function calendarActivity(orgId, monthStart) {
-  return all(
-    `SELECT t.due_date::date                                       AS date,
-            count(*)::int                                          AS count,
-            bool_or(c.name <> 'Done' AND t.due_date < CURRENT_DATE) AS overdue
-       FROM tasks t
-       JOIN projects p ON p.id = t.project_id
-       JOIN columns c ON c.id = t.column_id
-      WHERE p.org_id = $1
-        AND t.due_date >= $2::date
-        AND t.due_date <  ($2::date + INTERVAL '1 month')
-      GROUP BY t.due_date
-      ORDER BY t.due_date`,
-    [orgId, monthStart]
   );
 }
