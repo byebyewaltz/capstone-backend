@@ -7,7 +7,7 @@
 
 The through-line of the design: **every rule is enforced at the right layer.** The database constrains what can exist, the API constrains who can do what, and the UI merely reflects those rules back to the user — hidden buttons are a courtesy, never the security boundary.
 
-![TaskForge dashboard](Capstone-Frontend/preview.png)
+![TaskForge dashboard](preview.png)
 
 ---
 
