@@ -95,8 +95,9 @@ Capstone - TaskForge/
 │   ├── app.js                     Express app: routers, /health, 404, errors
 │   ├── package.json               "type": "module" + subpath imports
 │   │                              (#app, #db/*, #lib/*, #middleware/*, #routes/*)
-│   ├── vitest.config.js           loads .env into the Vitest environment
-│   ├── .env                       PORT, DATABASE_URL, JWT_SECRET
+│   ├── vitest.config.js           loads .env.test into the Vitest environment
+│   ├── .env                       PORT, DATABASE_URL, JWT_SECRET (gitignored)
+│   ├── .env.test                  test-only env → throwaway local Postgres
 │   ├── db/
 │   │   ├── client.js              pg connection pool
 │   │   ├── schema.sql             full DDL: tables, enums, indexes
@@ -130,7 +131,8 @@ Capstone - TaskForge/
 │   │   └── notifications.js       per-user feed, mark read / read-all
 │   └── test/
 │       ├── api.test.js            node:test + Supertest integration suite
-│       └── api.vitest.test.js     Vitest suite (auth, RBAC, isolation, CRUD)
+│       ├── api.vitest.test.js     Vitest suite (auth, RBAC, isolation, CRUD)
+│       └── pgtest.sh              manages the throwaway test Postgres (.pgtest/)
 │
 └── Capstone-Frontend/             ── React SPA ─────────────────────────────
     ├── index.html                 entry document
@@ -247,9 +249,11 @@ The seed also creates seven more teammates and five projects (`WEB`, `MOB`, `BPI
 | `npm run dev`         | Run with auto-reload (`node --watch`)                 |
 | `npm run db:reset`    | Drop and recreate the schema from `db/schema.sql`     |
 | `npm run db:seed`     | Load demo users, projects, tasks, and notifications   |
-| `npm test`            | Run both test suites (node:test, then Vitest)         |
+| `npm test`            | Run both test suites (node:test, then Vitest) against the private test Postgres, starting it if needed |
 | `npm run test:node`   | Integration suite via the built-in `node --test`      |
 | `npm run test:vitest` | Vitest suite                                          |
+| `npm run db:test:start` | Start the throwaway test Postgres (`.pgtest/`, port 54329) |
+| `npm run db:test:stop`  | Stop it (its data persists for the next run)        |
 
 **Frontend** (`Capstone-Frontend/`)
 
@@ -404,7 +408,19 @@ cd Capstone-Backend
 npm test
 ```
 
-Two complementary suites run against a live PostgreSQL database (reset your data with `npm run db:reset && npm run db:seed` afterwards if you care about it):
+The suites run against a **throwaway PostgreSQL instance of their own** — never
+against `DATABASE_URL` from `.env`. `npm test` starts it automatically
+(`test/pgtest.sh` creates a private cluster in `.pgtest/`, listening only on
+`127.0.0.1:54329`), and `.env.test` points both runners at it. Your development
+or hosted database is untouched, and there is nothing to reseed afterwards.
+Stop the instance with `npm run db:test:stop` whenever you like.
+
+As a second line of defense, `applySchema()` refuses to drop and recreate the
+schema on a non-localhost host unless `ALLOW_REMOTE_SCHEMA_RESET=1` is set —
+so neither `npm test` nor `npm run db:reset` can wipe a hosted database by
+accident.
+
+Two complementary suites:
 
 - **`test/api.test.js`** — integration tests on the built-in `node:test` runner with Supertest: auth flows, RBAC boundaries (each role tried against each guard), cross-org isolation, CRUD, and the move endpoint's position invariants.
 - **`test/api.vitest.test.js`** — a Vitest suite covering the same API through a second runner.

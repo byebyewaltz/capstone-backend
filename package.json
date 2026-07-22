@@ -16,9 +16,12 @@
     "dev": "node --watch server.js",
     "db:reset": "node db/reset.js",
     "db:seed": "node db/seed.js",
+    "db:test:start": "sh test/pgtest.sh start",
+    "db:test:stop": "sh test/pgtest.sh stop",
+    "pretest": "sh test/pgtest.sh start",
     "test": "npm run test:node && npm run test:vitest",
-    "test:node": "node --test test/api.test.js",
-    "test:vitest": "vitest run test/api.vitest.test.js"
+    "test:node": "node --env-file=.env.test --test test/api.test.js",
+    "test:vitest": "node --env-file=.env.test node_modules/vitest/vitest.mjs run test/api.vitest.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
