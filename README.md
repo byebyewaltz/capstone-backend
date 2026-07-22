@@ -1,4 +1,4 @@
-# TaskForge
+# TaskForge - Backend
 
 **Full-stack team project management** — organizations, role-based membership, drag-and-drop Kanban boards, task comments and attachments, dashboard analytics, and in-app notifications. A simplified Trello / Asana / Jira built as a capstone project, in two independently runnable parts:
 
