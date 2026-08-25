@@ -8,13 +8,11 @@
 
 The through-line of the design: **every rule is enforced at the right layer.** The database constrains what can exist, the API constrains who can do what, and the UI merely reflects those rules back to the user — hidden buttons are a courtesy, never the security boundary.
 
-![TaskForge dashboard](preview.png)
-
+<img width="1800" height="1037" alt="Taskforge Preview 00" src="https://github.com/user-attachments/assets/1691ff00-c514-46e1-9d8b-5be30cf65b75" />
+<img width="1800" height="1038" alt="Taskforge Preview 01" src="https://github.com/user-attachments/assets/cb2aa5ff-7360-402a-8f9e-6d3085e6f944" />
+<img width="1797" height="1038" alt="Taskforge Preview 02" src="https://github.com/user-attachments/assets/00d4c762-f3f7-418f-8519-6282755ff1ea" />
 <img width="1800" height="1038" alt="Taskforge Preview 03" src="https://github.com/user-attachments/assets/f235656e-2ba6-4c3b-9617-db6c88d8d230" />
 <img width="1800" height="1039" alt="Taskforge Preview 04" src="https://github.com/user-attachments/assets/2adddda1-9230-45fb-9bc6-efb1cd80c29f" />
-<img width="1800" height="1037" alt="Taskforge Preview 00" src="https://github.com/user-attachments/assets/1691ff00-c514-46e1-9d8b-5be30cf65b75" />
-<img width="1797" height="1038" alt="Taskforge Preview 02" src="https://github.com/user-attachments/assets/00d4c762-f3f7-418f-8519-6282755ff1ea" />
-<img width="1800" height="1038" alt="Taskforge Preview 01" src="https://github.com/user-attachments/assets/cb2aa5ff-7360-402a-8f9e-6d3085e6f944" />
 
 ---
 
